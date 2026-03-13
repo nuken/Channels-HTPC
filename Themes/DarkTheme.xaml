@@ -1,0 +1,22 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="AppBackground" Color="#1E1E1E"/>
+    <SolidColorBrush x:Key="PanelBackground" Color="#252526"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#3E3E42"/>
+    
+    <SolidColorBrush x:Key="TextPrimary" Color="White"/>
+    <SolidColorBrush x:Key="TextSecondary" Color="#AAAAAA"/>
+    <SolidColorBrush x:Key="HeaderForeground" Color="#CCCCCC"/>
+    
+    <SolidColorBrush x:Key="CardBackground" Color="#2D2D30"/>
+    <SolidColorBrush x:Key="CardHoverBackground" Color="#45454C"/>
+    <SolidColorBrush x:Key="CardBorderBrush" Color="#1E1E1E"/>
+    <SolidColorBrush x:Key="CardHoverBorderBrush" Color="#666670"/>
+    
+    <SolidColorBrush x:Key="LiveBackground" Color="#004A7F"/>
+    <SolidColorBrush x:Key="LiveBorder" Color="#0078D7"/>
+    <SolidColorBrush x:Key="LiveHover" Color="#0063A6"/>
+	<SolidColorBrush x:Key="StatusConnecting" Color="#FFD700"/> 
+	<SolidColorBrush x:Key="StatusSuccess" Color="#90EE90"/> 
+	<SolidColorBrush x:Key="StatusError" Color="#FF8C00"/> 	
+</ResourceDictionary>
