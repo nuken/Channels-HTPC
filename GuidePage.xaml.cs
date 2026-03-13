@@ -12,6 +12,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Media.Animation;
 using System.Windows.Controls;
 using System.Windows.Navigation;
+using System.Windows.Input;
 
 namespace ChannelsNativeTest
 {
@@ -377,15 +378,26 @@ namespace ChannelsNativeTest
                 e.Handled = true;
                 return;
             }
-
-            if (e.Key == System.Windows.Input.Key.PageUp || e.Key == System.Windows.Input.Key.MediaNextTrack)
+			
+			if (e.Key == Key.BrowserHome)
             {
-                MainVerticalScroller.ScrollToVerticalOffset(MainVerticalScroller.VerticalOffset - MainVerticalScroller.ViewportHeight);
+                NavigationService?.Navigate(new StartPage());
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == System.Windows.Input.Key.PageUp || e.Key == System.Windows.Input.Key.MediaPreviousTrack)
+            {
+                // Jump focus UP 4 channels!
+                for (int i = 0; i < 4; i++)
+                    (System.Windows.Input.Keyboard.FocusedElement as UIElement)?.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Up));
                 e.Handled = true;
             }
-            else if (e.Key == System.Windows.Input.Key.PageDown || e.Key == System.Windows.Input.Key.MediaPreviousTrack)
+            else if (e.Key == System.Windows.Input.Key.PageDown || e.Key == System.Windows.Input.Key.MediaNextTrack)
             {
-                MainVerticalScroller.ScrollToVerticalOffset(MainVerticalScroller.VerticalOffset + MainVerticalScroller.ViewportHeight);
+                // Jump focus DOWN 4 channels!
+                for (int i = 0; i < 4; i++)
+                    (System.Windows.Input.Keyboard.FocusedElement as UIElement)?.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Down));
                 e.Handled = true;
             }
         }

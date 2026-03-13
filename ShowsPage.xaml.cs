@@ -259,6 +259,33 @@ namespace ChannelsNativeTest
                 BackButton_Click(null!, null!);
                 e.Handled = true;
             }
+			if (e.Key == Key.BrowserHome)
+            {
+                NavigationService?.Navigate(new StartPage());
+                e.Handled = true;
+                return;
+            }
+			if (e.Key == Key.Apps || e.Key == Key.System)
+            {
+                ToggleFilters_Click(null!, null!);
+                e.Handled = true;
+                return;
+            }
+            // NEW: USB Remote Page Up / Page Down support!
+            else if (e.Key == Key.PageUp || e.Key == Key.MediaPreviousTrack)
+            {
+                // Rapidly jump focus UP 3 rows!
+                for (int i = 0; i < 3; i++)
+                    (Keyboard.FocusedElement as UIElement)?.MoveFocus(new TraversalRequest(FocusNavigationDirection.Up));
+                e.Handled = true;
+            }
+            else if (e.Key == Key.PageDown || e.Key == Key.MediaNextTrack)
+            {
+                // Rapidly jump focus DOWN 3 rows!
+                for (int i = 0; i < 3; i++)
+                    (Keyboard.FocusedElement as UIElement)?.MoveFocus(new TraversalRequest(FocusNavigationDirection.Down));
+                e.Handled = true;
+            }
         }
     }
 }

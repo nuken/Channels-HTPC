@@ -481,6 +481,33 @@ namespace ChannelsNativeTest
                 else this.Close(); 
                 e.Handled = true;
             }
+			else if (e.Key == System.Windows.Input.Key.MediaPlayPause)
+            {
+                PlayPause_Click(null!, null!);
+                Overlay_MouseMove(null!, null!);
+                e.Handled = true;
+            }
+            else if (e.Key == System.Windows.Input.Key.MediaStop)
+            {
+                if (_isFullscreen) ToggleFullscreen();
+                else this.Close();
+                e.Handled = true;
+            }
+            else if (e.Key == System.Windows.Input.Key.VolumeMute)
+            {
+                ToggleMute();
+                e.Handled = true;
+            }
+            else if (e.Key == System.Windows.Input.Key.VolumeUp)
+            {
+                VolumeUp();
+                e.Handled = true;
+            }
+            else if (e.Key == System.Windows.Input.Key.VolumeDown)
+            {
+                VolumeDown();
+                e.Handled = true;
+            }
         }
 
         private void Window_PreviewKeyUp(object sender, System.Windows.Input.KeyEventArgs e)

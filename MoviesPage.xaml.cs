@@ -238,15 +238,33 @@ namespace ChannelsNativeTest
                 e.Handled = true;
                 return;
             }
-
-            if (e.Key == Key.PageUp || e.Key == Key.MediaNextTrack)
+			
+			if (e.Key == Key.BrowserHome)
             {
-                MainScroller.ScrollToVerticalOffset(MainScroller.VerticalOffset - MainScroller.ViewportHeight);
+                NavigationService?.Navigate(new StartPage());
+                e.Handled = true;
+                return;
+            }
+			
+			if (e.Key == Key.Apps || e.Key == Key.System)
+            {
+                ToggleFilters_Click(null!, null!);
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.PageUp || e.Key == Key.MediaPreviousTrack)
+            {
+                // Jump focus UP 3 rows instead of just visually scrolling!
+                for (int i = 0; i < 3; i++)
+                    (Keyboard.FocusedElement as UIElement)?.MoveFocus(new TraversalRequest(FocusNavigationDirection.Up));
                 e.Handled = true;
             }
-            else if (e.Key == Key.PageDown || e.Key == Key.MediaPreviousTrack)
+            else if (e.Key == Key.PageDown || e.Key == Key.MediaNextTrack)
             {
-                MainScroller.ScrollToVerticalOffset(MainScroller.VerticalOffset + MainScroller.ViewportHeight);
+                // Jump focus DOWN 3 rows!
+                for (int i = 0; i < 3; i++)
+                    (Keyboard.FocusedElement as UIElement)?.MoveFocus(new TraversalRequest(FocusNavigationDirection.Down));
                 e.Handled = true;
             }
         }
