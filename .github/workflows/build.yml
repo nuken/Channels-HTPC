@@ -5,20 +5,18 @@ on:
     branches: [ "master", "main" ]
   workflow_dispatch:
 
-# --- NEW: Forces GitHub to use the new Node 24 engine and silences the warning ---
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v4
+      # BUMPED to v6
+      uses: actions/checkout@v6
 
     - name: Setup .NET 8
-      uses: actions/setup-dotnet@v4
+      # BUMPED to v5
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: '8.0.x'
 
@@ -30,7 +28,8 @@ jobs:
         & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" ChannelsInstaller.iss
 
     - name: Upload Installer Artifact
-      uses: actions/upload-artifact@v4
+      # BUMPED to v7
+      uses: actions/upload-artifact@v7
       with:
         name: ChannelsHTPC-Installer
         path: Output/ChannelsHTPC_Alpha_Setup.exe
