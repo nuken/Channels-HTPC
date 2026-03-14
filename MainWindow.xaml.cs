@@ -130,9 +130,6 @@ namespace ChannelsNativeTest
                             await Task.Delay(1000); // Wait 1 second before polling again
                             currentTry++;
                         }
-                        
-                        // Once the loop breaks, the port is either free, or we hit the timeout 
-                        // and will let the builder throw its natural binding exception.
                     }
 
                     var options = new WebApplicationOptions { ContentRootPath = AppContext.BaseDirectory };
@@ -141,6 +138,7 @@ namespace ChannelsNativeTest
                     // Bind to the dynamically verified port
                     builder.WebHost.UseUrls($"http://*:{portToUse}");
 
+                    // --- GLOBAL JSON RULES ---
                     builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(opt => 
                     {
                         opt.SerializerOptions.IncludeFields = true;
@@ -162,7 +160,7 @@ namespace ChannelsNativeTest
                     _webHost.MapGet("/api/remote/collections", async () => 
                     {
                         var settings = SettingsManager.Load();
-                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Json(new string[] { "All Channels" });
+                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Ok(new string[] { "All Channels" });
                         
                         try {
                             var api = new ChannelsApi();
@@ -172,15 +170,15 @@ namespace ChannelsNativeTest
                             var names = collections.Select(c => c.name).ToList();
                             names.Insert(0, "All Channels");
                             
-                            return Results.Json(names);
-                        } catch { return Results.Json(new string[] { "All Channels" }); }
+                            return Results.Ok(names);
+                        } catch { return Results.Ok(new string[] { "All Channels" }); }
                     });
 
                     // --- FIXED GUIDE ROUTE ---
                     _webHost.MapGet("/api/remote/guide", async (string? collection, string? search) => 
                     {
                         var settings = SettingsManager.Load();
-                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Json(new object[] { });
+                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Ok(new object[] { });
                         
                         try {
                             var api = new ChannelsApi();
@@ -203,11 +201,8 @@ namespace ChannelsNativeTest
                                 channels = channels.Where(c => c.HasIdentifier(search)).ToList();
                             }
 
-                            // Explicitly force .NET to keep your exact C# capitalization!
-                            var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = null };
-                            return Results.Json(channels, jsonOpts);
-
-                        } catch { return Results.Json(new object[] { }); }
+                            return Results.Ok(channels);
+                        } catch { return Results.Ok(new object[] { }); }
                     });
 
                     _webHost.MapPost("/api/remote/play/{channelNumber}", async (string channelNumber) => 
@@ -319,18 +314,14 @@ namespace ChannelsNativeTest
                     _webHost.MapGet("/api/remote/movies", async () => 
                     {
                         var settings = SettingsManager.Load();
-                        
-                        // Explicitly force .NET to keep your exact C# capitalization
-                        var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = null };
 
                         if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) 
-                            return Results.Json(new List<Movie>(), jsonOpts);
+                            return Results.Ok(new List<Movie>());
 
                         var api = new ChannelsApi();
                         var movies = await api.GetMoviesAsync(settings.LastServerAddress);
                         
-                        // Pass the rules to the final return!
-                        return Results.Json(movies, jsonOpts);
+                        return Results.Ok(movies);
                     });
 
                     _webHost.MapPost("/api/remote/playmovie/{id}", async (string id) =>
@@ -424,20 +415,18 @@ namespace ChannelsNativeTest
                     _webHost.MapGet("/api/remote/shows", async () => 
                     {
                         var settings = SettingsManager.Load();
-                        var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = null };
 
-                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Json(new List<TvShow>(), jsonOpts);
+                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Ok(new List<TvShow>());
                         var api = new ChannelsApi();
-                        return Results.Json(await api.GetShowsAsync(settings.LastServerAddress), jsonOpts);
+                        return Results.Ok(await api.GetShowsAsync(settings.LastServerAddress));
                     });
 
                     // --- FIXED EPISODES LIBRARY ---
                     _webHost.MapGet("/api/remote/episodes/{showId}", async (string showId) => 
                     {
                         var settings = SettingsManager.Load();
-                        var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = null };
 
-                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Json(new List<Episode>(), jsonOpts);
+                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Ok(new List<Episode>());
                         var api = new ChannelsApi();
                         var allEpisodes = await api.GetEpisodesAsync(settings.LastServerAddress);
                         
@@ -445,7 +434,7 @@ namespace ChannelsNativeTest
                         var showEpisodes = allEpisodes.Where(e => e.ShowId == showId)
                                                       .OrderByDescending(e => e.SeasonNumber)
                                                       .ThenByDescending(e => e.EpisodeNumber).ToList();
-                        return Results.Json(showEpisodes, jsonOpts);
+                        return Results.Ok(showEpisodes);
                     });
 
                     _webHost.MapPost("/api/remote/playepisode/{id}", async (string id) =>
@@ -478,8 +467,7 @@ namespace ChannelsNativeTest
                     _webHost.MapGet("/api/remote/apps", () => 
                     {
                         var settings = SettingsManager.Load();
-                        var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = null };
-                        return Results.Json(settings.ExternalStreams, jsonOpts);
+                        return Results.Ok(settings.ExternalStreams);
                     });
 
                     _webHost.MapPost("/api/remote/playapp/{id}", (string id) =>
@@ -520,7 +508,6 @@ namespace ChannelsNativeTest
                                     else if (stream.Service.ToLower() == "prime video")
                                     {
                                         string input = stream.StreamId.Trim();
-                                        // FIXED: Ends with a semicolon now, and uses 'input' to be clean!
                                         string finalUrl = input.StartsWith("http") ? input : $"https://www.primevideo.com/watch/{input}";
                                         
                                         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo 
@@ -535,7 +522,6 @@ namespace ChannelsNativeTest
                                         string uri = stream.Service.ToLower() switch
                                         {
                                             "hulu" => $"hulu://w/{stream.StreamId.Trim()}",
-                                            // Prime video removed from here since it now has its own Edge block above
                                             _ => stream.StreamId.Trim()
                                         };
                                         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true });
