@@ -27,17 +27,31 @@ namespace ChannelsNativeTest
         public List<ExternalStream> ExternalStreams { get; set; } = new List<ExternalStream>();
     }
 
-    public static class SettingsManager
+   public static class SettingsManager
     {
-        private static readonly string FilePath = "user_settings.json";
+        // --- NEW: Route the settings file to the writable Windows AppData folder ---
+        private static string GetFilePath()
+        {
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string folderPath = Path.Combine(appData, "ChannelsHTPC");
+            
+            // Create the ChannelsHTPC folder in AppData if it doesn't exist yet
+            if (!Directory.Exists(folderPath))
+            {
+                Directory.CreateDirectory(folderPath);
+            }
+            
+            return Path.Combine(folderPath, "user_settings.json");
+        }
 
         public static UserSettings Load()
         {
-            if (File.Exists(FilePath))
+            string filePath = GetFilePath();
+            if (File.Exists(filePath))
             {
                 try 
                 { 
-                    return JsonSerializer.Deserialize<UserSettings>(File.ReadAllText(FilePath)) ?? new UserSettings(); 
+                    return JsonSerializer.Deserialize<UserSettings>(File.ReadAllText(filePath)) ?? new UserSettings(); 
                 }
                 catch { return new UserSettings(); }
             }
@@ -46,7 +60,9 @@ namespace ChannelsNativeTest
 
         public static void Save(UserSettings settings)
         {
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(settings));
+            string filePath = GetFilePath();
+            File.WriteAllText(filePath, JsonSerializer.Serialize(settings));
         }
     }
+
 }
