@@ -161,25 +161,49 @@ namespace ChannelsNativeTest
 
         public async Task<List<Station>> GetStationsAsync(string baseUrl)
         {
+            var stationsList = new List<Station>();
             try
             {
                 var url = $"{baseUrl}/dvr/guide/stations";
                 var response = await _http.GetStringAsync(url);
                 
-                var options = new JsonSerializerOptions
+                using var document = JsonDocument.Parse(response);
+                
+                // The JSON root is a dictionary of providers (e.g., "USA-OTA", "X-M3U")
+                foreach (var provider in document.RootElement.EnumerateObject())
                 {
-                    PropertyNameCaseInsensitive = true
-                };
+                    // Each provider contains a dictionary of Station IDs
+                    foreach (var stationProp in provider.Value.EnumerateObject())
+                    {
+                        string stationId = stationProp.Name;
+                        string logoUrl = "";
+                        
+                        // 1. Standard Broadcast/Cable (Gracenote data)
+                        if (stationProp.Value.TryGetProperty("preferredImage", out var prefImg) && 
+                            prefImg.TryGetProperty("uri", out var uriProp))
+                        {
+                            logoUrl = uriProp.GetString() ?? "";
+                        }
+                        // 2. Custom M3U / Pluto TV data
+                        else if (stationProp.Value.TryGetProperty("Icon", out var iconProp) && 
+                                 iconProp.TryGetProperty("Src", out var srcProp))
+                        {
+                            logoUrl = srcProp.GetString() ?? "";
+                        }
 
-                return JsonSerializer.Deserialize<List<Station>>(response, options) ?? new List<Station>();
+                        if (!string.IsNullOrWhiteSpace(stationId) && !string.IsNullOrWhiteSpace(logoUrl))
+                        {
+                            stationsList.Add(new Station { Id = stationId, Logo = logoUrl });
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Failed to load stations: {ex.Message}");
-                return new List<Station>();
             }
+            return stationsList;
         }
-    }
 
     public class Channel
     {
