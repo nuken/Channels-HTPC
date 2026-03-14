@@ -143,6 +143,8 @@ namespace ChannelsNativeTest
                     builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(opt => 
                     {
                         opt.SerializerOptions.IncludeFields = true;
+                        // NEW: Force the server to keep your exact C# capitalization!
+                        opt.SerializerOptions.PropertyNamingPolicy = null; 
                     });
 
                     _webHost = builder.Build();
@@ -155,16 +157,22 @@ namespace ChannelsNativeTest
                         return Results.Content("<h1>Error: wwwroot/index.html not found!</h1>", "text/html");
                     });
 
-                    // --- DELEGATE DATA TO THE ACTIVE PAGE ---
-                   _webHost.MapGet("/api/remote/collections", async () => 
+                   // --- FIXED LIVE TV COLLECTIONS ROUTE ---
+                    _webHost.MapGet("/api/remote/collections", async () => 
                     {
                         var settings = SettingsManager.Load();
-                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Json(new object[] { });
+                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Json(new string[] { "All Channels" });
                         
                         try {
                             var api = new ChannelsApi();
-                            return Results.Json(await api.GetChannelCollectionsAsync(settings.LastServerAddress));
-                        } catch { return Results.Json(new object[] { }); }
+                            var collections = await api.GetChannelCollectionsAsync(settings.LastServerAddress);
+                            
+                            // Extract just the string names for the HTML dropdown, and add the default "All Channels"
+                            var names = collections.Select(c => c.name).ToList();
+                            names.Insert(0, "All Channels");
+                            
+                            return Results.Json(names);
+                        } catch { return Results.Json(new string[] { "All Channels" }); }
                     });
 
                     _webHost.MapGet("/api/remote/guide", async (string? collection, string? search) => 
