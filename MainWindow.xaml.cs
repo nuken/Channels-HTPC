@@ -23,7 +23,8 @@ namespace ChannelsNativeTest
         // 1. MainWindow now permanently owns the Web Server and tracks the Active Player!
         private WebApplication? _webHost;
         public PlayerWindow? ActivePlayerWindow { get; set; }
-		// --- NEW: WINDOWS NATIVE MOUSE CONTROLS ---
+
+        // --- NEW: WINDOWS NATIVE MOUSE CONTROLS ---
         [DllImport("user32.dll")]
         private static extern bool SetCursorPos(int X, int Y);
 
@@ -143,7 +144,7 @@ namespace ChannelsNativeTest
                     builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(opt => 
                     {
                         opt.SerializerOptions.IncludeFields = true;
-                        // NEW: Force the server to keep your exact C# capitalization!
+                        // Force the server to keep your exact C# capitalization!
                         opt.SerializerOptions.PropertyNamingPolicy = null; 
                     });
 
@@ -157,7 +158,7 @@ namespace ChannelsNativeTest
                         return Results.Content("<h1>Error: wwwroot/index.html not found!</h1>", "text/html");
                     });
 
-                   // --- FIXED LIVE TV COLLECTIONS ROUTE ---
+                    // --- FIXED LIVE TV COLLECTIONS ROUTE ---
                     _webHost.MapGet("/api/remote/collections", async () => 
                     {
                         var settings = SettingsManager.Load();
@@ -175,6 +176,7 @@ namespace ChannelsNativeTest
                         } catch { return Results.Json(new string[] { "All Channels" }); }
                     });
 
+                    // --- FIXED GUIDE ROUTE ---
                     _webHost.MapGet("/api/remote/guide", async (string? collection, string? search) => 
                     {
                         var settings = SettingsManager.Load();
@@ -201,7 +203,10 @@ namespace ChannelsNativeTest
                                 channels = channels.Where(c => c.HasIdentifier(search)).ToList();
                             }
 
-                            return Results.Json(channels);
+                            // Explicitly force .NET to keep your exact C# capitalization!
+                            var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = null };
+                            return Results.Json(channels, jsonOpts);
+
                         } catch { return Results.Json(new object[] { }); }
                     });
 
@@ -225,6 +230,7 @@ namespace ChannelsNativeTest
                         });
                         return Results.Ok();
                     });
+
                     // --- GLOBAL COMMANDS ---
                     _webHost.MapPost("/api/remote/home", () => 
                     { 
@@ -308,17 +314,23 @@ namespace ChannelsNativeTest
                         });
                         return Results.Ok();
                     });
-					
-					// --- NEW: MOBILE MOVIE LIBRARY ---
-
+                    
+                    // --- FIXED MOVIE ROUTE ---
                     _webHost.MapGet("/api/remote/movies", async () => 
                     {
                         var settings = SettingsManager.Load();
-                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Json(new List<Movie>());
+                        
+                        // Explicitly force .NET to keep your exact C# capitalization
+                        var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = null };
+
+                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) 
+                            return Results.Json(new List<Movie>(), jsonOpts);
 
                         var api = new ChannelsApi();
                         var movies = await api.GetMoviesAsync(settings.LastServerAddress);
-                        return Results.Json(movies);
+                        
+                        // Pass the rules to the final return!
+                        return Results.Json(movies, jsonOpts);
                     });
 
                     _webHost.MapPost("/api/remote/playmovie/{id}", async (string id) =>
@@ -379,8 +391,8 @@ namespace ChannelsNativeTest
                         });
                         return Results.Ok();
                     });
-					
-					// --- NEW: SYSTEM MOUSE TRACKPAD ROUTES ---
+                    
+                    // --- NEW: SYSTEM MOUSE TRACKPAD ROUTES ---
                     _webHost.MapPost("/api/system/mouse", async (HttpContext context) =>
                     {
                         var delta = await context.Request.ReadFromJsonAsync<MouseDelta>();
@@ -407,20 +419,25 @@ namespace ChannelsNativeTest
                         }
                         return Results.Ok();
                     });
-					
-					// --- NEW: TV SHOWS LIBRARY ---
+                    
+                    // --- FIXED TV SHOWS LIBRARY ---
                     _webHost.MapGet("/api/remote/shows", async () => 
                     {
                         var settings = SettingsManager.Load();
-                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Json(new List<TvShow>());
+                        var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = null };
+
+                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Json(new List<TvShow>(), jsonOpts);
                         var api = new ChannelsApi();
-                        return Results.Json(await api.GetShowsAsync(settings.LastServerAddress));
+                        return Results.Json(await api.GetShowsAsync(settings.LastServerAddress), jsonOpts);
                     });
 
+                    // --- FIXED EPISODES LIBRARY ---
                     _webHost.MapGet("/api/remote/episodes/{showId}", async (string showId) => 
                     {
                         var settings = SettingsManager.Load();
-                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Json(new List<Episode>());
+                        var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = null };
+
+                        if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Json(new List<Episode>(), jsonOpts);
                         var api = new ChannelsApi();
                         var allEpisodes = await api.GetEpisodesAsync(settings.LastServerAddress);
                         
@@ -428,7 +445,7 @@ namespace ChannelsNativeTest
                         var showEpisodes = allEpisodes.Where(e => e.ShowId == showId)
                                                       .OrderByDescending(e => e.SeasonNumber)
                                                       .ThenByDescending(e => e.EpisodeNumber).ToList();
-                        return Results.Json(showEpisodes);
+                        return Results.Json(showEpisodes, jsonOpts);
                     });
 
                     _webHost.MapPost("/api/remote/playepisode/{id}", async (string id) =>
@@ -456,12 +473,13 @@ namespace ChannelsNativeTest
                         }
                         return Results.NotFound();
                     });
-					
-					// --- NEW: EXTERNAL APPS ROUTES ---
+                    
+                    // --- FIXED EXTERNAL APPS ROUTES ---
                     _webHost.MapGet("/api/remote/apps", () => 
                     {
                         var settings = SettingsManager.Load();
-                        return Results.Json(settings.ExternalStreams);
+                        var jsonOpts = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = null };
+                        return Results.Json(settings.ExternalStreams, jsonOpts);
                     });
 
                     _webHost.MapPost("/api/remote/playapp/{id}", (string id) =>
@@ -528,8 +546,8 @@ namespace ChannelsNativeTest
                         });
                         return Results.Ok();
                     });
-					
-					await _webHost.RunAsync();
+                    
+                    await _webHost.RunAsync();
                 }
                 catch (Exception ex)
                 {
