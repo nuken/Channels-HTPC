@@ -313,8 +313,10 @@
         // --- Press & Hold Scrubbing Logic ---
         let scrubTimeout;
         let isScrubbing = false;
+        let activeScrubDirection = null; // NEW: The lock to prevent double-firing
 
         function startScrub(direction) {
+            activeScrubDirection = direction; // Lock it in when the finger touches down
             scrubTimeout = setTimeout(() => {
                 isScrubbing = true;
                 if (navigator.vibrate) navigator.vibrate(20);
@@ -323,6 +325,10 @@
         }
 
         function endScrub(direction) {
+            // If pointerup already handled this tap, ignore the pointerleave ghost click!
+            if (activeScrubDirection !== direction) return; 
+            activeScrubDirection = null; // Release the lock
+
             clearTimeout(scrubTimeout);
             if (isScrubbing) {
                 isScrubbing = false;
