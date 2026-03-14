@@ -168,31 +168,53 @@ namespace ChannelsNativeTest
             }));
         }
 		
-		// --- NEW: Real-time Buffering Intercept ---
+		// --- NEW: Debounce flag for micro-stutters ---
+        private bool _isWaitingToBuffer = false;
+
+        // --- NEW: Real-time Buffering Intercept ---
         private void MediaPlayer_Buffering(object? sender, MediaPlayerBufferingEventArgs e)
         {
-            Dispatcher.BeginInvoke(new Action(() =>
+            Dispatcher.BeginInvoke(new Action(async () =>
             {
-                // If the buffer is not full, show the curtain and update the percentage
                 if (e.Cache < 100)
                 {
-                    LoadingOverlay.Visibility = Visibility.Visible;
-                    LoadingText.Text = $"Buffering... {(int)e.Cache}%";
+                    // If the curtain is hidden and we aren't already waiting...
+                    if (LoadingOverlay.Visibility != Visibility.Visible && !_isWaitingToBuffer)
+                    {
+                        _isWaitingToBuffer = true;
+                        
+                        // Give VLC a 750ms grace period to recover on its own!
+                        await Task.Delay(750);
+                        
+                        // If it is STILL buffering after the grace period, drop the curtain!
+                        if (_isWaitingToBuffer)
+                        {
+                            LoadingOverlay.Visibility = Visibility.Visible;
+                        }
+                    }
+
+                    // If the curtain actually became visible, update the text
+                    if (LoadingOverlay.Visibility == Visibility.Visible)
+                    {
+                        LoadingText.Text = $"Buffering... {(int)e.Cache}%";
+                    }
                 }
                 else
                 {
-                    // The exact millisecond it hits 100%, drop the curtain!
+                    // Hit 100%! Cancel the waiting flag and hide the curtain instantly.
+                    _isWaitingToBuffer = false;
                     LoadingOverlay.Visibility = Visibility.Collapsed;
                 }
             }));
         }
 		
-		// --- NEW: Bulletproof Failsafe for VOD/Movies ---
+        // --- NEW: Bulletproof Failsafe for VOD/Movies ---
         private void MediaPlayer_Playing(object? sender, EventArgs e)
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                // The absolute millisecond audio/video officially starts, drop the curtain!
+                // The absolute millisecond audio/video officially starts, cancel flags and drop the curtain!
+                _isWaitingToBuffer = false;
                 LoadingOverlay.Visibility = Visibility.Collapsed;
             }));
         }
