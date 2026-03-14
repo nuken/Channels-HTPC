@@ -2,8 +2,12 @@ name: Build and Package Channels HTPC
 
 on:
   push:
-    branches: [ "master", "main" ] # Runs automatically when you push code
-  workflow_dispatch: # Allows you to trigger a build manually from the Actions tab
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+
+# --- NEW: Forces GitHub to use the new Node 24 engine and silences the warning ---
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -20,14 +24,13 @@ jobs:
 
     - name: Publish .NET Application
       run: dotnet publish ChannelsNativeTest.csproj -c Release -r win-x64
-      
+
     - name: Compile Inno Setup Installer
       run: |
         & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" ChannelsInstaller.iss
-        
+
     - name: Upload Installer Artifact
       uses: actions/upload-artifact@v4
       with:
         name: ChannelsHTPC-Installer
-        # Grabs the compiled setup file from the Output directory we defined in the .iss
         path: Output/ChannelsHTPC_Alpha_Setup.exe
