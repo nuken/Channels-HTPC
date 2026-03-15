@@ -11,9 +11,9 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate>
-                        <Border BorderThickness="4" BorderBrush="#FFD700" CornerRadius="4" Margin="-4">
+                        <Border BorderThickness="2" BorderBrush="#007ACC" CornerRadius="6" Margin="-2">
                             <Border.Effect>
-                                <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="0" Opacity="0.8" />
+                                <DropShadowEffect Color="#007ACC" BlurRadius="15" ShadowDepth="0" Opacity="1" />
                             </Border.Effect>
                         </Border>
                     </ControlTemplate>
@@ -96,20 +96,20 @@
                 
                 <TextBlock Text="SERVER:" Style="{StaticResource HeaderText}" Margin="0,0,10,0"/>
                 <ComboBox x:Name="ServerComboBox" Width="220" Height="34" Margin="0,0,15,0" IsEditable="True" 
-                          FontSize="16" Padding="8,0" VerticalContentAlignment="Center"/>
-                <Button Content="Connect" Click="LoadData_Click" Style="{StaticResource ModernButton}"/>
+                          FontSize="16" Padding="8,0" VerticalContentAlignment="Center" FocusVisualStyle="{StaticResource TvGuideFocusStyle}"/>
                 
+                <Button Content="Connect" Click="LoadData_Click" Style="{StaticResource ModernButton}"/>
                 <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="20,0"/>
 
                 <TextBlock Text="COLLECTION:" Style="{StaticResource HeaderText}" Margin="0,0,10,0" x:Name="CollectionLabel" Visibility="Collapsed"/>
                 <ComboBox x:Name="CollectionComboBox" Width="180" Height="34" Margin="0,0,15,0" 
                           Visibility="Collapsed" SelectionChanged="CollectionComboBox_SelectionChanged" 
-                          FontSize="16" Padding="8,0" VerticalContentAlignment="Center"/>
+                          FontSize="16" Padding="8,0" VerticalContentAlignment="Center" FocusVisualStyle="{StaticResource TvGuideFocusStyle}"/>
 
                 <TextBlock Text="SEARCH:" Style="{StaticResource HeaderText}" Margin="0,0,10,0" x:Name="SearchLabel" Visibility="Collapsed"/>
                 <Border Background="{DynamicResource AppBackground}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="5,0" Visibility="Collapsed" x:Name="SearchBorder">
                     <TextBox x:Name="SearchTextBox" Width="140" Background="Transparent" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" 
-                             VerticalAlignment="Center" TextChanged="SearchTextBox_TextChanged" FontSize="14"/>
+                             VerticalAlignment="Center" TextChanged="SearchTextBox_TextChanged" FontSize="14" FocusVisualStyle="{StaticResource TvGuideFocusStyle}"/>
                 </Border>
 
                 <Button Content="☀ / 🌙" Margin="20,0,0,0" Padding="10,5" Click="ToggleTheme_Click" Style="{StaticResource ModernButton}" ToolTip="Toggle Light/Dark Theme"/>
@@ -144,11 +144,17 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Height="60" Background="{DynamicResource CardBackground}" CornerRadius="4" Margin="0,5,10,5" Padding="5">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding Number}" Width="45" FontWeight="Bold" FontSize="14" VerticalAlignment="Center" Margin="5,0,0,0" Foreground="{DynamicResource TextPrimary}"/>
-                                        <Image Source="{Binding ImageUrl}" Width="50" Height="40" Margin="5,0,10,0" Stretch="Uniform" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}"/>
-                                    </StackPanel>
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding Number}" FontWeight="Bold" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource TextPrimary}"/>
+                                            <Image Source="{Binding ImageUrl}" Height="26" Stretch="Uniform" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Row="1" Text="{Binding Name}" HorizontalAlignment="Center" VerticalAlignment="Bottom" TextTrimming="CharacterEllipsis" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
+                                    </Grid>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -156,7 +162,7 @@
                 </StackPanel>
 
                 <ScrollViewer Grid.Column="1" x:Name="TimelineScroller" PreviewMouseWheel="TimelineScroller_PreviewMouseWheel" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" Focusable="False" IsTabStop="False">                    
-                    <StackPanel>
+                    <StackPanel Margin="6,0,0,0">
                         <ItemsControl x:Name="TimeHeadersControl" Height="35" Margin="0,0,0,5">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -175,11 +181,11 @@
                         <ItemsControl x:Name="GuideItemsControl" Focusable="False" IsTabStop="False">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Height="60" Margin="0,5" ClipToBounds="True">
+                                    <Grid Height="60" Margin="0,5" ClipToBounds="False">
                                         <ItemsControl ItemsSource="{Binding CurrentAirings}" Focusable="False" IsTabStop="False">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
-                                                    <StackPanel Orientation="Horizontal"/>
+                                                    <StackPanel Orientation="Horizontal" Margin="4,0,0,0"/>
                                                 </ItemsPanelTemplate>
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>

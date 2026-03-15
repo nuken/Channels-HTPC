@@ -34,7 +34,10 @@ namespace ChannelsNativeTest
         [DllImport("user32.dll")]
         private static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, int dwExtraInfo);
 
-        private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+        [DllImport("user32.dll")]
+        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+		
+		private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
         private const uint MOUSEEVENTF_LEFTUP = 0x0004;
         private const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
         private const uint MOUSEEVENTF_RIGHTUP = 0x0010;
@@ -273,7 +276,8 @@ namespace ChannelsNativeTest
                     
                     // Picture In Picture toggle mapped to your requested endpoint
                     _webHost.MapPost("/api/toggle_pip", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.TogglePiP()); return Results.Ok(); });
-                    
+                    // Closed Captions toggle mapped to your requested endpoint
+                    _webHost.MapPost("/api/remote/cc", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.ToggleClosedCaptions()); return Results.Ok(); });
                     _webHost.MapPost("/api/remote/volup", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.VolumeUp()); return Results.Ok(); });
                     _webHost.MapPost("/api/remote/voldown", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.VolumeDown()); return Results.Ok(); });
                     _webHost.MapPost("/api/remote/mute", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.ToggleMute()); return Results.Ok(); });
@@ -295,7 +299,7 @@ namespace ChannelsNativeTest
                         return Results.Ok();
                     });
 
-                   // This D-Pad logic natively works on ANY page perfectly!
+                   // --- NATIVE HARDWARE KEYBOARD SIMULATION ---
                     _webHost.MapPost("/api/remote/key/{direction}", (string direction) =>
                     {
                         Application.Current.Dispatcher.Invoke(() =>
@@ -306,37 +310,25 @@ namespace ChannelsNativeTest
                             if (ActivePlayerWindow != null && ActivePlayerWindow.IsVisible)
                             {
                                 targetWindow = ActivePlayerWindow;
-                                
-                                // First, see if the player wants to consume the key as a media shortcut (FF/RW/Pause)
-                                if (ActivePlayerWindow.HandleRemoteKey(direction)) 
-                                    return; // Handled as a shortcut! Stop here.
+                                if (ActivePlayerWindow.HandleRemoteKey(direction)) return; 
                             }
 
-                            // 2. Standard UI Navigation (works on whichever window is currently active)
                             targetWindow.Activate();
                             
-                            var focused = System.Windows.Input.Keyboard.FocusedElement as UIElement;
-                            
-                            if (focused == null)
-                            {
-                                var request = new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First);
-                                ((FrameworkElement)targetWindow).MoveFocus(request);
-                                focused = System.Windows.Input.Keyboard.FocusedElement as UIElement;
-                            }
+                            // 2. Map remote commands to raw Windows Virtual Keys
+                            byte vk = 0;
+                            if (direction == "up") vk = 0x26;
+                            else if (direction == "down") vk = 0x28;
+                            else if (direction == "left") vk = 0x25;
+                            else if (direction == "right") vk = 0x27;
+                            else if (direction == "enter") vk = 0x0D;
 
-                            if (focused != null)
+                            // 3. Fire the hardware key into the Windows message pump!
+                            // This allows DropDowns to open natively and triggers KeyDown events flawlessly.
+                            if (vk != 0)
                             {
-                                if (direction == "up") focused.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Up));
-                                else if (direction == "down") focused.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Down));
-                                else if (direction == "left") focused.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Left));
-                                else if (direction == "right") focused.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Right));
-                                else if (direction == "enter")
-                                {
-                                    if (focused is System.Windows.Controls.Button btn) btn.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
-                                }
-                                
-                                var newlyFocused = System.Windows.Input.Keyboard.FocusedElement as FrameworkElement;
-                                newlyFocused?.BringIntoView();
+                                keybd_event(vk, 0, 0, 0); // Key press
+                                keybd_event(vk, 0, 0x0002, 0); // Key release
                             }
                         });
                         return Results.Ok();

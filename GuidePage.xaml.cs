@@ -31,6 +31,8 @@ namespace ChannelsNativeTest
         private Airing? _selectedAiring;
         private UserSettings _settings;
         private System.Windows.Controls.Button? _lastFocusedAiringButton;      
+        private double _lastHorizontalFocusCenter = 0;
+        private DateTime _lastLeftKeyPressTime = DateTime.MinValue; // Tracks the Double-Left Cheat Code
         
         public GuidePage()
         {
@@ -48,8 +50,7 @@ namespace ChannelsNativeTest
             _refreshTimer.Start();
             
             this.Loaded += Page_Loaded;
-            // (Removed the Page_Unloaded hook from here)
-        } // <-- Added the missing closing bracket for the constructor!
+        }
 
         public List<string> GetCollections()
         {
@@ -100,7 +101,6 @@ namespace ChannelsNativeTest
             {
                 ShowStatus("No servers found. Please enter IP manually.", "StatusError");
             }
-            // (Removed the StartWebServer call from here)
         }
                      
         private void GenerateTimeHeaders(int durationHours)
@@ -109,7 +109,6 @@ namespace ChannelsNativeTest
             DateTime now = DateTime.Now;
             DateTime start = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute >= 30 ? 30 : 0, 0);
 
-            // Calculate how many 30-minute blocks we need based on the hours setting
             int totalBlocks = (durationHours * 2) + 4;
             for (int i = 0; i < totalBlocks; i++) 
             {
@@ -194,7 +193,7 @@ namespace ChannelsNativeTest
 
                 try 
                 {
-                    GenerateTimeHeaders(_settings.GuideDurationHours); // Update this line!
+                    GenerateTimeHeaders(_settings.GuideDurationHours); 
                     
                     DateTime now = DateTime.Now;
                     _currentGridStart = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute >= 30 ? 30 : 0, 0);
@@ -367,6 +366,7 @@ namespace ChannelsNativeTest
         
         private void Page_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
+            // 1. Modal & Escape Logic
             if (ModalOverlay.Visibility == Visibility.Visible)
             {
                 if (e.Key == System.Windows.Input.Key.Escape || e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)
@@ -383,24 +383,111 @@ namespace ChannelsNativeTest
                 e.Handled = true;
                 return;
             }
-			
-			if (e.Key == Key.BrowserHome)
+            
+            if (e.Key == Key.BrowserHome)
             {
                 NavigationService?.Navigate(new StartPage());
                 e.Handled = true;
                 return;
             }
 
+            // --- 2. NEW: HORIZONTAL BARRIER & DOUBLE-LEFT CHEAT CODE ---
+            if (e.Key == System.Windows.Input.Key.Left || e.Key == System.Windows.Input.Key.Right)
+            {
+                // Process the Double-Left to jump to top!
+                if (e.Key == System.Windows.Input.Key.Left)
+                {
+                    if ((DateTime.Now - _lastLeftKeyPressTime).TotalMilliseconds < 350)
+                    {
+                        e.Handled = true;
+                        MainVerticalScroller.ScrollToVerticalOffset(0);
+                        
+                        if (_displayedChannels.Count > 0)
+                        {
+                            var safeAirings = _displayedChannels[0].CurrentAirings ?? new List<Airing>();
+                            var firstAiring = safeAirings.FirstOrDefault();
+                            
+                            if (firstAiring != null)
+                            {
+                                var targetBtn = FindButtonForAiring(GuideItemsControl, firstAiring);
+                                targetBtn?.Focus();
+                            }
+                        }
+                        return;
+                    }
+                    _lastLeftKeyPressTime = DateTime.Now;
+                }
+
+                // If we are currently inside the Guide grid, take over the Left/Right navigation
+                if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.Button btn && btn.Tag is Airing currentAiring)
+                {
+                    e.Handled = true; // Hard trap: Prevent WPF from natively escaping the guide!
+
+                    var channel = _displayedChannels.FirstOrDefault(c => c.Number == currentAiring.ChannelNumber);
+                    if (channel != null)
+                    {
+                        var safeAirings = channel.CurrentAirings ?? new List<Airing>();
+                        int currentIndex = safeAirings.IndexOf(currentAiring);
+                        
+                        // Calculate the index of the show to the left or right
+                        int nextIndex = (e.Key == System.Windows.Input.Key.Right) ? currentIndex + 1 : currentIndex - 1;
+
+                        if (nextIndex >= 0 && nextIndex < safeAirings.Count)
+                        {
+                            // If a show exists, move focus to it!
+                            var targetAiring = safeAirings[nextIndex];
+                            var targetBtn = FindButtonForAiring(GuideItemsControl, targetAiring);
+                            targetBtn?.Focus();
+                        }
+                        // If nextIndex is out of bounds (edge of the guide), we do nothing! Focus remains trapped.
+                    }
+                    return;
+                }
+            }
+
+            // --- 3. IMPENETRABLE GUIDE WALL (Anti-Diagonal Jump) ---
+            if (e.Key == System.Windows.Input.Key.Up || e.Key == System.Windows.Input.Key.Down)
+            {
+                if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.Button btn && btn.Tag is Airing currentAiring)
+                {
+                    e.Handled = true; // Stop WPF from moving natively
+                    
+                    int currentChannelIndex = _displayedChannels.IndexOf(_displayedChannels.First(c => c.Number == currentAiring.ChannelNumber));
+                    int nextIndex = e.Key == System.Windows.Input.Key.Down ? currentChannelIndex + 1 : currentChannelIndex - 1;
+                    
+                    // If we are still within the guide vertically...
+                    if (nextIndex >= 0 && nextIndex < _displayedChannels.Count)
+                    {
+                        var nextChannel = _displayedChannels[nextIndex];
+                        
+                        var safeAirings = nextChannel.CurrentAirings ?? new List<Airing>();
+                        
+                        var targetAiring = safeAirings.FirstOrDefault(a => 
+                            a.LeftOffset <= _lastHorizontalFocusCenter && 
+                            (a.LeftOffset + a.BlockWidth) >= _lastHorizontalFocusCenter);
+                            
+                        if (targetAiring == null) targetAiring = safeAirings.FirstOrDefault();
+                            
+                        if (targetAiring != null)
+                        {
+                            var targetBtn = FindButtonForAiring(GuideItemsControl, targetAiring);
+                            targetBtn?.Focus();
+                        }
+                    }
+                    // If trying to go UP from the top row, it just does nothing! Focus stays trapped.
+                    return; 
+                }
+            }
+
+            // 4. Page Up / Page Down (Also trapped within the guide)
             if (e.Key == System.Windows.Input.Key.PageUp || e.Key == System.Windows.Input.Key.MediaPreviousTrack)
             {
-                // Jump focus UP 4 channels!
                 for (int i = 0; i < 4; i++)
                     (System.Windows.Input.Keyboard.FocusedElement as UIElement)?.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Up));
                 e.Handled = true;
             }
             else if (e.Key == System.Windows.Input.Key.PageDown || e.Key == System.Windows.Input.Key.MediaNextTrack)
             {
-                // Jump focus DOWN 4 channels!
                 for (int i = 0; i < 4; i++)
                     (System.Windows.Input.Keyboard.FocusedElement as UIElement)?.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Down));
                 e.Handled = true;
@@ -442,24 +529,42 @@ namespace ChannelsNativeTest
                 else CloseModalButton.Focus();
             }
         }
-		
-		private void AiringBlock_RequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)
+        
+        private void AiringBlock_RequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)
         {
-            // MAGIC BULLET: This disables WPF's native spatial scrolling, preventing 
-            // the erratic jumping and "lost focus" when using the D-Pad!
             e.Handled = true; 
+        }
+
+        private System.Windows.Controls.Button? FindButtonForAiring(DependencyObject parent, Airing targetAiring)
+        {
+            Queue<DependencyObject> queue = new Queue<DependencyObject>();
+            queue.Enqueue(parent);
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+                if (current is System.Windows.Controls.Button b && b.Tag == targetAiring) return b;
+
+                int childCount = System.Windows.Media.VisualTreeHelper.GetChildrenCount(current);
+                for (int i = 0; i < childCount; i++) queue.Enqueue(System.Windows.Media.VisualTreeHelper.GetChild(current, i));
+            }
+            return null;
         }
 
         private void AiringBlock_GotFocus(object sender, RoutedEventArgs e)
         {
-            if (sender is System.Windows.Controls.Button btn)
+            if (sender is System.Windows.Controls.Button btn && btn.Tag is Airing airing)
             {
+                bool isHorizontalMove = _lastFocusedAiringButton == null || 
+                    ((Airing)_lastFocusedAiringButton.Tag).ChannelNumber == airing.ChannelNumber;
+
+                if (isHorizontalMove)
+                {
+                    _lastHorizontalFocusCenter = airing.LeftOffset + (btn.ActualWidth / 2.0);
+                }
                 try
                 {
-                    // 1. Gently nudge the Horizontal Timeline Scroller
                     if (TimelineScroller != null)
                     {
-                        // Calculate the EXACT physical pixel position of the button on the screen
                         var hTransform = btn.TransformToAncestor(TimelineScroller);
                         var hBounds = hTransform.TransformBounds(new Rect(0, 0, btn.ActualWidth, btn.ActualHeight));
 
@@ -467,7 +572,6 @@ namespace ChannelsNativeTest
                             TimelineScroller.ScrollToHorizontalOffset(TimelineScroller.HorizontalOffset + hBounds.Left - 20);
                         else if (hBounds.Right > TimelineScroller.ViewportWidth)
                         {
-                            // If it's a 4-hour movie, prioritize keeping the Left Edge (Title) visible!
                             if (btn.ActualWidth > TimelineScroller.ViewportWidth)
                                 TimelineScroller.ScrollToHorizontalOffset(TimelineScroller.HorizontalOffset + hBounds.Left - 20);
                             else
@@ -475,7 +579,6 @@ namespace ChannelsNativeTest
                         }
                     }
 
-                    // 2. Gently nudge the Vertical Channels Scroller
                     if (MainVerticalScroller != null)
                     {
                         var vTransform = btn.TransformToAncestor(MainVerticalScroller);
@@ -487,7 +590,9 @@ namespace ChannelsNativeTest
                             MainVerticalScroller.ScrollToVerticalOffset(MainVerticalScroller.VerticalOffset + (vBounds.Bottom - MainVerticalScroller.ViewportHeight) + 20);
                     }
                 }
-                catch { } // Fails safely if the UI layout hasn't fully rendered yet
+                catch { } 
+                
+                _lastFocusedAiringButton = btn;
             }
         }
 
@@ -537,7 +642,6 @@ namespace ChannelsNativeTest
             }
         }
         
-        // <-- Changed to public so MainWindow can call it! -->
         public void RemotePlayChannel(string channelNumber)
         {
             string baseUrl = "";
@@ -612,8 +716,8 @@ namespace ChannelsNativeTest
             ApplyTheme(_settings.IsLightTheme);
             SettingsManager.Save(_settings);
         }
-		
-		private void HomeButton_Click(object sender, RoutedEventArgs e)
+        
+        private void HomeButton_Click(object sender, RoutedEventArgs e)
         {
             NavigationService?.GoBack();
         }

@@ -29,10 +29,25 @@
                 </Grid.RowDefinitions>
 				
 				<Border x:Name="LoadingOverlay" Grid.RowSpan="2" Background="{DynamicResource AppBackground}" Visibility="Collapsed" Panel.ZIndex="100">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <TextBlock Text="⏳" FontSize="64" HorizontalAlignment="Center" Margin="0,0,0,20"/>
-                <TextBlock x:Name="LoadingText" Text="Connecting..." FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" HorizontalAlignment="Center"/>
-            </StackPanel>
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="&#x21BB;" FontSize="64" HorizontalAlignment="Center" Margin="0,0,0,20" Foreground="{DynamicResource TextPrimary}" RenderTransformOrigin="0.5, 0.5">
+                            <TextBlock.RenderTransform>
+                                <RotateTransform />
+                            </TextBlock.RenderTransform>
+                            <TextBlock.Triggers>
+                                <EventTrigger RoutedEvent="Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                             From="0" To="360" Duration="0:0:1.5"
+                                                             RepeatBehavior="Forever" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </TextBlock.Triggers>
+                        </TextBlock>
+                        <TextBlock x:Name="LoadingText" Text="Connecting..." FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" HorizontalAlignment="Center"/>
+                    </StackPanel>
                 </Border>
 
                 <Border x:Name="StatsOverlay" Grid.Row="0" HorizontalAlignment="Left" VerticalAlignment="Top" 

@@ -161,11 +161,13 @@ namespace ChannelsNativeTest
         // We need to know how long the movie is to set the Slider's maximum length!
         private void MediaPlayer_LengthChanged(object? sender, MediaPlayerLengthChangedEventArgs e)
         {
+            // FIXED: Grab the value immediately before VLC destroys the memory!
+            long safeLength = e.Length; 
+
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                // --- RESTORED: This sets the maximum length of the slider ---
-                TimelineSlider.Maximum = e.Length;
-                TotalTimeText.Text = TimeSpan.FromMilliseconds(e.Length).ToString(@"h\:mm\:ss");
+                TimelineSlider.Maximum = safeLength;
+                TotalTimeText.Text = TimeSpan.FromMilliseconds(safeLength).ToString(@"h\:mm\:ss");
             }));
         }
 		
@@ -175,9 +177,12 @@ namespace ChannelsNativeTest
         // --- NEW: Real-time Buffering Intercept ---
         private void MediaPlayer_Buffering(object? sender, MediaPlayerBufferingEventArgs e)
         {
+            // FIXED: Grab the value immediately before VLC destroys the memory!
+            float safeCache = e.Cache; 
+
             Dispatcher.BeginInvoke(new Action(async () =>
             {
-                if (e.Cache < 100)
+                if (safeCache < 100)
                 {
                     // If the curtain is hidden and we aren't already waiting...
                     if (LoadingOverlay.Visibility != Visibility.Visible && !_isWaitingToBuffer)
@@ -197,7 +202,7 @@ namespace ChannelsNativeTest
                     // If the curtain actually became visible, update the text
                     if (LoadingOverlay.Visibility == Visibility.Visible)
                     {
-                        LoadingText.Text = $"Buffering... {(int)e.Cache}%";
+                        LoadingText.Text = $"Buffering... {(int)safeCache}%";
                     }
                 }
                 else
@@ -274,6 +279,30 @@ namespace ChannelsNativeTest
             {
                 int newVol = _mediaPlayer.Volume - 10;
                 _mediaPlayer.Volume = newVol < 0 ? 0 : newVol;
+            }
+        }
+		
+		// --- NEW: CLOSED CAPTION TOGGLE ---
+        public void ToggleClosedCaptions()
+        {
+            if (_mediaPlayer == null) return;
+
+            // In VLC, -1 means subtitles/CC are currently disabled
+            if (_mediaPlayer.Spu == -1)
+            {
+                // Grab the track list and find the first real subtitle track (Id > -1)
+                var firstCcTrack = _mediaPlayer.SpuDescription.FirstOrDefault(track => track.Id > -1);
+                
+                // If we found a valid track, turn it on!
+                if (firstCcTrack.Id > -1)
+                {
+                    _mediaPlayer.SetSpu(firstCcTrack.Id);
+                }
+            }
+            else
+            {
+                // If it is anything other than -1, they are currently on, so turn them off!
+                _mediaPlayer.SetSpu(-1);
             }
         }
 		

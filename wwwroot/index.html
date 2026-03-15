@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <title>Channels Remote</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --bg-color: #121212;
@@ -40,7 +41,7 @@
             z-index: 1000;
         }
 
-        .header h1 { font-size: 20px; margin: 0; font-weight: 600; }
+        .header h1 { font-size: 20px; margin: 0; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 
         .open-remote-btn {
             background-color: var(--accent-color);
@@ -51,10 +52,14 @@
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .tab-bar { display: flex; background: #1e1e1e; padding: 10px; position: fixed; top: 60px; left: 0; right: 0; z-index: 999; border-bottom: 2px solid #333; }
-        .tab-btn { flex: 1; padding: 10px 2px; font-size: 14px; font-weight: bold; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; }
+        .tab-btn { flex: 1; padding: 10px 2px; font-size: 14px; font-weight: bold; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .tab-btn i { font-size: 16px; }
         .tab-btn.active { color: #FFD700; border-bottom: 3px solid #FFD700; }
         
         .movie-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 15px; padding: 15px; padding-top: 10px; }
@@ -115,8 +120,8 @@
             padding-bottom: 10px;
             margin-bottom: 20px;
         }
-        .remote-header h3 { margin: 0; color: var(--text-primary); }
-        .close-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; }
+        .remote-header h3 { margin: 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+        .close-btn { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
         
         .remote-buttons-row {
             display: flex;
@@ -129,16 +134,20 @@
             background-color: #333;
             color: white;
             border: none;
-            padding: 12px 10px;
+            padding: 12px 8px;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
             cursor: pointer;
             flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
         }
+        .remote-buttons-row button i { font-size: 18px; }
         .remote-buttons-row button:active { background-color: #555; }
-        .pip-btn { background-color: #ff9800 !important; }
-
+        
         .dpad-container {
             display: flex;
             flex-direction: column;
@@ -180,19 +189,19 @@
 <body>
     
     <div class="header">
-        <h1>📱 Control</h1>
+        <h1><i class="fa-solid fa-mobile-screen"></i> Control</h1>
         <div>
-            <button class="open-remote-btn" onclick="goHome()" style="background: #333; margin-right: 10px;">🏠</button>
-            <button class="open-remote-btn" onclick="openRemote()">🎛️ Remote</button>
+            <button class="open-remote-btn" onclick="goHome()" style="background: #333; margin-right: 10px;"><i class="fa-solid fa-house"></i></button>
+            <button class="open-remote-btn" onclick="openRemote()"><i class="fa-solid fa-sliders"></i> Remote</button>
         </div>
     </div>
 
     <div class="tab-bar">
-        <button id="tab-tv" class="tab-btn active" onclick="switchTab('tv')">📺 Live</button>
-        <button id="tab-shows" class="tab-btn" onclick="switchTab('shows')">🍿 Shows</button>
-        <button id="tab-movies" class="tab-btn" onclick="switchTab('movies')">🎬 Movies</button>
-        <button id="tab-apps" class="tab-btn" onclick="switchTab('apps')">🌐 Apps</button>
-        <button id="tab-pc" class="tab-btn" onclick="switchTab('pc')">💻 PC</button>
+        <button id="tab-tv" class="tab-btn active" onclick="switchTab('tv')"><i class="fa-solid fa-tv"></i> Live</button>
+        <button id="tab-shows" class="tab-btn" onclick="switchTab('shows')"><i class="fa-solid fa-film"></i> Shows</button>
+        <button id="tab-movies" class="tab-btn" onclick="switchTab('movies')"><i class="fa-solid fa-clapperboard"></i> Movies</button>
+        <button id="tab-apps" class="tab-btn" onclick="switchTab('apps')"><i class="fa-solid fa-border-all"></i> Apps</button>
+        <button id="tab-pc" class="tab-btn" onclick="switchTab('pc')"><i class="fa-solid fa-desktop"></i> PC</button>
     </div>
 
     <div id="view-tv">
@@ -200,16 +209,18 @@
             <select class="collection-select" id="collectionDropdown" onchange="loadGuide()">
                 <option>All Channels</option>
             </select>
-            <input class="search-input" type="text" id="searchInput" placeholder="Search..." onkeyup="loadGuide()" />
+            <div style="position: relative; flex: 1;">
+                <input class="search-input" type="text" id="searchInput" placeholder="Search..." onkeyup="loadGuide()" style="width: 100%; box-sizing: border-box;" />
+            </div>
         </div>
         <div class="guide-container" id="guide">
-            <div class="loading">Loading Channels...</div>
+            <div class="loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading Channels...</div>
         </div>
     </div>
 
     <div id="view-movies" style="display: none;">
         <div style="display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 15px 5px 15px; background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #333;">
-            <input type="text" id="movieSearch" placeholder="🔍 Search Movies..." style="flex: 1 1 100%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 16px;" onkeyup="applyMovieFilters()">
+            <input type="text" id="movieSearch" placeholder="Search Movies..." style="flex: 1 1 100%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 16px;" onkeyup="applyMovieFilters()">
             <select id="movieGenre" style="flex: 1 1 48%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 14px;" onchange="applyMovieFilters()"><option value="All">All Genres</option></select>
             <select id="movieWatched" style="flex: 1 1 48%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 14px;" onchange="applyMovieFilters()">
                 <option value="All">All Statuses</option><option value="Unwatched">Unwatched Only</option><option value="Watched">Watched Only</option>
@@ -220,14 +231,14 @@
         </div>
 
         <div class="movie-grid" id="movieGrid">
-            <div class="loading">Loading Movies...</div>
+            <div class="loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading Movies...</div>
         </div>
     </div>
     
     <div id="view-shows" style="display: none;">
         <div id="shows-main">
             <div style="display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 15px 5px 15px; background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px solid #333;">
-                <input type="text" id="showSearch" placeholder="🔍 Search Shows..." style="flex: 1 1 100%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 16px;" onkeyup="applyShowFilters()">
+                <input type="text" id="showSearch" placeholder="Search Shows..." style="flex: 1 1 100%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 16px;" onkeyup="applyShowFilters()">
                 <select id="showGenre" style="flex: 1 1 48%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 14px;" onchange="applyShowFilters()"><option value="All">All Genres</option></select>
                 <select id="showWatched" style="flex: 1 1 48%; padding: 10px; border-radius: 6px; border: none; background: #333; color: white; font-size: 14px;" onchange="applyShowFilters()">
                     <option value="All">All Statuses</option><option value="Unwatched">Unwatched Only</option><option value="Watched">Watched Only</option>
@@ -238,12 +249,12 @@
             </div>
 
             <div class="movie-grid" id="showGrid">
-                <div class="loading">Loading TV Shows...</div>
+                <div class="loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading TV Shows...</div>
             </div>
         </div>
 
         <div id="episodes-view" style="display: none; padding: 15px; padding-top: 25px;">
-            <button onclick="backToShows()" style="background: #333; color: white; padding: 12px; border: none; border-radius: 8px; margin-bottom: 20px; font-weight: bold; width: 100%; cursor: pointer;">🔙 Back to Shows</button>
+            <button onclick="backToShows()" style="background: #333; color: white; padding: 12px; border: none; border-radius: 8px; margin-bottom: 20px; font-weight: bold; width: 100%; cursor: pointer;"><i class="fa-solid fa-arrow-left"></i> Back to Shows</button>
             <h2 id="episodes-title" style="margin-top: 0; margin-bottom: 15px;">Episodes</h2>
             <div id="episodeList" style="display: flex; flex-direction: column; gap: 10px;"></div>
         </div>
@@ -251,14 +262,14 @@
     
     <div id="view-apps" style="display: none; padding: 15px; margin-top: 10px;">
         <div class="movie-grid" id="appsGrid">
-            <div class="loading">Loading Apps...</div>
+            <div class="loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading Apps...</div>
         </div>
     </div>
 
     <div id="view-pc" style="display: none; height: calc(100vh - 160px); padding: 15px; flex-direction: column; box-sizing: border-box;">
         
         <div id="trackpad" style="flex: 1; background: #2a2a2a; border-radius: 15px; border: 2px solid #444; touch-action: none; display: flex; align-items: center; justify-content: center;">
-            <span style="color: #666; font-size: 24px; pointer-events: none;">👆 Trackpad</span>
+            <span style="color: #666; font-size: 24px; pointer-events: none;"><i class="fa-solid fa-hand-pointer"></i> Trackpad</span>
         </div>
         
         <div style="display: flex; gap: 15px; margin-top: 15px; height: 70px; flex-shrink: 0;">
@@ -269,38 +280,39 @@
 
     <div id="remoteOverlay" class="remote-overlay">
         <div class="remote-header">
-            <h3>🎛️ Control Center</h3>
-            <button class="close-btn" onclick="closeRemote()">❌</button>
+            <h3><i class="fa-solid fa-sliders"></i> Control Center</h3>
+            <button class="close-btn" onclick="closeRemote()"><i class="fa-solid fa-xmark"></i></button>
         </div>
         
        <div class="remote-buttons-row">
-         <button onclick="toggleView()">🔄 Swap</button>
-         <button onclick="toggleFullscreen()">⛶ FS</button>
-         <button class="pip-btn" onclick="togglePiP()">🗔 PiP</button>
-         <button onclick="toggleStats()">📊 Stats</button>
+         <button onclick="toggleView()"><i class="fa-solid fa-rotate"></i> Swap</button>
+         <button onclick="toggleFullscreen()"><i class="fa-solid fa-expand"></i> FS</button>
+         <button onclick="togglePiP()"><i class="fa-solid fa-window-restore"></i> PiP</button>
+         <button onclick="toggleStats()"><i class="fa-solid fa-chart-column"></i> Stats</button>
      </div>
 
         <div class="remote-buttons-row">
-            <button onclick="volDown()">🔉 Vol -</button>
-            <button onclick="toggleMute()">🔇 Mute</button>
-            <button onclick="volUp()">🔊 Vol +</button>
+            <button onclick="volDown()"><i class="fa-solid fa-volume-low"></i> Vol -</button>
+            <button onclick="toggleMute()"><i class="fa-solid fa-volume-xmark"></i> Mute</button>
+            <button onclick="volUp()"><i class="fa-solid fa-volume-high"></i> Vol +</button>
+            <button onclick="toggleCC()"><i class="fa-solid fa-closed-captioning"></i> CC</button>
         </div>
 
         <div class="dpad-container">
             <div class="dpad-row">
-                <button class="dpad-btn" onclick="sendKey('up')">▲</button>
+                <button class="dpad-btn" onclick="sendKey('up')"><i class="fa-solid fa-chevron-up"></i></button>
             </div>
             <div class="dpad-row">
                 <button class="dpad-btn" 
-                        onpointerdown="startScrub('left')" onpointerup="endScrub('left')" onpointerleave="endScrub('left')">◀</button>
+                        onpointerdown="startScrub('left')" onpointerup="endScrub('left')" onpointerleave="endScrub('left')"><i class="fa-solid fa-chevron-left"></i></button>
                 
                 <button class="dpad-btn enter-btn" onclick="sendKey('enter')">OK</button>
                 
                 <button class="dpad-btn" 
-                        onpointerdown="startScrub('right')" onpointerup="endScrub('right')" onpointerleave="endScrub('right')">▶</button>
+                        onpointerdown="startScrub('right')" onpointerup="endScrub('right')" onpointerleave="endScrub('right')"><i class="fa-solid fa-chevron-right"></i></button>
             </div>
             <div class="dpad-row">
-                <button class="dpad-btn" onclick="sendKey('down')">▼</button>
+                <button class="dpad-btn" onclick="sendKey('down')"><i class="fa-solid fa-chevron-down"></i></button>
             </div>
         </div>
     </div>
@@ -520,7 +532,7 @@
             document.getElementById('episodes-title').innerText = showName;
             
             const list = document.getElementById('episodeList');
-            list.innerHTML = '<div class="loading">Loading episodes...</div>';
+            list.innerHTML = '<div class="loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading episodes...</div>';
 
             try {
                 const response = await fetch(`/api/remote/episodes/${showId}`);
@@ -542,7 +554,7 @@
                             <div style="color: #007ACC; font-weight: bold; font-size: 12px; margin-bottom: 4px;">S${sNum} E${eNum}</div>
                             <div style="font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${eTitle}</div>
                         </div>
-                        <button onclick="playEpisode('${eId}')" style="background: #007ACC; color: white; border: none; padding: 10px 15px; border-radius: 6px; font-weight: bold; cursor: pointer;">▶ Play</button>
+                        <button onclick="playEpisode('${eId}')" style="background: #007ACC; color: white; border: none; padding: 10px 15px; border-radius: 6px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-play"></i> Play</button>
                     `;
                     list.appendChild(epCard);
                 });
@@ -699,7 +711,7 @@
 
                 if (channels.length === 0) {
                     if (selectedCollection === 'All Channels' && searchQuery === '') {
-                        guideDiv.innerHTML = '<div class="loading" style="margin-top: 40px;">⏳ Waiting for Live TV to open on the HTPC...</div>';
+                        guideDiv.innerHTML = '<div class="loading" style="margin-top: 40px;"><i class="fa-solid fa-hourglass-half fa-spin"></i> Waiting for Live TV to open on the HTPC...</div>';
                         setTimeout(loadGuide, 2000); 
                     } else {
                         guideDiv.innerHTML = '<div class="loading">No channels found.</div>';
@@ -736,7 +748,7 @@
                     guideDiv.appendChild(card);
                 });
             } catch (error) {
-                document.getElementById('guide').innerHTML = `<div class="loading">🔌 Connecting to HTPC...</div>`;
+                document.getElementById('guide').innerHTML = `<div class="loading"><i class="fa-solid fa-plug"></i> Connecting to HTPC...</div>`;
                 setTimeout(loadGuide, 5000);
             }
         }
@@ -772,6 +784,7 @@
         function volUp() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/volup', { method: 'POST' }); }
         function toggleStats() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/stats', { method: 'POST' }); }
         function volDown() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/voldown', { method: 'POST' }); }
+        function toggleCC() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/cc', { method: 'POST' }); }
         function toggleMute() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/mute', { method: 'POST' }); }
         function goHome() { if (navigator.vibrate) navigator.vibrate(50); fetch('/api/remote/home', { method: 'POST' }); }
     </script>
