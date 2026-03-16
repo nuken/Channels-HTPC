@@ -38,7 +38,7 @@ During video playback, the following keys are available:
 
 This application features a built-in companion web server that acts as a mobile remote control. When the HTPC app is running, it hosts a local web interface that you can access from any smartphone, tablet, or secondary computer on your home network.
 
-You can find the exact URL to type into your mobile browser by navigating to the **Settings** page within the Channels HTPC Windows app.
+You can find the exact URL to type into your mobile browser by navigating to the **Settings** page within the Feral HTPC Windows app.
 
 From the mobile remote interface, you can:
 
