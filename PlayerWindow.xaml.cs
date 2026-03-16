@@ -32,6 +32,7 @@ namespace ChannelsNativeTest
         
         private DispatcherTimer _uiTimer;
         private DispatcherTimer _statsTimer;
+		private DispatcherTimer? _liveProgressTimer;
         private bool _showStats = false;
         private bool _isPipMode = false;
         private WindowState _previousState;
@@ -52,6 +53,8 @@ namespace ChannelsNativeTest
             _currentIndex = startIndex;
 			_remoteScrubTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
             _remoteScrubTimer.Tick += RemoteScrubTimer_Tick;
+			_liveProgressTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _liveProgressTimer.Tick += LiveProgressTimer_Tick;
 
             _mediaPlayer = new MediaPlayer(MainWindow.SharedLibVLC);
             VlcVideoView.MediaPlayer = _mediaPlayer;
@@ -76,6 +79,28 @@ namespace ChannelsNativeTest
                 this.ResizeMode = ResizeMode.NoResize;
                 this.Topmost = true; // Keeps it above the Windows taskbar
                 _isFullscreen = true; // Syncs with your existing toggle logic
+            }
+        }
+		
+		private void LiveProgressTimer_Tick(object? sender, EventArgs e)
+        {
+            if (_channels == null || !_channels.Any()) return;
+
+            var currentChannel = _channels[_currentIndex];
+            var currentAiring = currentChannel.CurrentAirings?.FirstOrDefault(a => a.IsAiringNow);
+
+            if (currentAiring != null && currentAiring.Duration.HasValue && !_isDraggingTimeline)
+            {
+                // Calculate how many milliseconds have passed since the show started
+                double elapsedMs = (DateTime.Now - currentAiring.StartTime).TotalMilliseconds;
+                double maxMs = currentAiring.Duration.Value * 1000;
+
+                // Keep the bar within bounds
+                if (elapsedMs > maxMs) elapsedMs = maxMs;
+                if (elapsedMs < 0) elapsedMs = 0;
+
+                TimelineSlider.Value = elapsedMs;
+                CurrentTimeText.Text = TimeSpan.FromMilliseconds(elapsedMs).ToString(@"h\:mm\:ss");
             }
         }
 
@@ -124,7 +149,9 @@ namespace ChannelsNativeTest
 
         private void MediaPlayer_TimeChanged(object? sender, MediaPlayerTimeChangedEventArgs e)
         {
-            long currentTime = e.Time; 
+            if (!_isMovieMode) return; // Ignore VLC's internal stream time for Live TV
+
+            long currentTime = e.Time;
 
             // 1. Commercial Skip Logic
             if (_isMovieMode && _movieCommercials != null && _movieCommercials.Count >= 2 && _settings.AutoSkipCommercials)
@@ -161,8 +188,9 @@ namespace ChannelsNativeTest
         // We need to know how long the movie is to set the Slider's maximum length!
         private void MediaPlayer_LengthChanged(object? sender, MediaPlayerLengthChangedEventArgs e)
         {
-            // FIXED: Grab the value immediately before VLC destroys the memory!
-            long safeLength = e.Length; 
+            if (!_isMovieMode) return; // Ignore VLC's internal length for Live TV
+
+            long safeLength = e.Length;
 
             Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -453,7 +481,11 @@ namespace ChannelsNativeTest
 
         private void TimelineSlider_PreviewMouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            if (_mediaPlayer.IsSeekable) _mediaPlayer.Time = (long)TimelineSlider.Value;
+            // Only seek if we are in Movie/Recording mode
+            if (_isMovieMode && _mediaPlayer.IsSeekable) 
+            {
+                _mediaPlayer.Time = (long)TimelineSlider.Value;
+            }
             _isDraggingTimeline = false;
         }
 
@@ -541,6 +573,22 @@ namespace ChannelsNativeTest
            LoadingOverlay.Visibility = Visibility.Visible;
             LoadingText.Text = "Connecting...";
             
+           if (currentAiring != null && currentAiring.Duration.HasValue)
+            {
+                TimelineSlider.Maximum = currentAiring.Duration.Value * 1000;
+                TotalTimeText.Text = TimeSpan.FromSeconds(currentAiring.Duration.Value).ToString(@"h\:mm\:ss");
+                _liveProgressTimer?.Start();
+            }
+            else
+            {
+                _liveProgressTimer?.Stop();
+                TimelineSlider.Value = 0;
+                TimelineSlider.Maximum = 1; 
+                CurrentTimeText.Text = "LIVE";
+                TotalTimeText.Text = "";
+            }
+            // ------------------------------------------
+
             _mediaPlayer.Play(media);
         }
 
@@ -869,6 +917,7 @@ namespace ChannelsNativeTest
                 _mediaPlayer.LengthChanged -= MediaPlayer_LengthChanged; // <-- Fixed to "-="
                 _mediaPlayer.Stop();
                 _mediaPlayer.Dispose();
+				_liveProgressTimer?.Stop();
             }
         }
         

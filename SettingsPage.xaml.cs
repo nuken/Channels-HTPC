@@ -21,7 +21,7 @@ namespace ChannelsNativeTest
             _settings = SettingsManager.Load();
             
             // Populate the UI with current settings
-            ServerIpTextBox.Text = _settings.LastServerAddress;
+            ServerIpComboBox.Text = _settings.LastServerAddress;
             AutoSkipCheckBox.IsChecked = _settings.AutoSkipCommercials;
             LightModeCheckBox.IsChecked = _settings.IsLightTheme;
             FullscreenCheckBox.IsChecked = _settings.StartPlayersFullscreen;
@@ -67,10 +67,27 @@ namespace ChannelsNativeTest
             return "127.0.0.1"; 
         }
 
-        private void Page_Loaded(object sender, RoutedEventArgs e)
+        private async void Page_Loaded(object sender, RoutedEventArgs e)
         {
-            ServerIpTextBox.Focus();
+            ServerIpComboBox.Focus(); // CHANGED
             RefreshStreamsList(); 
+
+            // --- NEW: Auto-Discover Local Channels DVR Servers ---
+            try
+            {
+                var api = new ChannelsApi();
+                var discoveredServers = await api.DiscoverDvrServersAsync();
+                
+                foreach (var server in discoveredServers)
+                {
+                    // Avoid adding duplicates if the user already has this saved as their current text
+                    if (!ServerIpComboBox.Items.Contains(server.BaseUrl))
+                    {
+                        ServerIpComboBox.Items.Add(server.BaseUrl);
+                    }
+                }
+            }
+            catch { /* Silently fail if discovery network is restricted */ }
         }
 
         // --- EXTERNAL STREAM LOGIC ---
@@ -168,15 +185,40 @@ namespace ChannelsNativeTest
 
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
-            _settings.LastServerAddress = ServerIpTextBox.Text.Trim();
+            // --- NEW: Format the Server Address for remote/manual connections ---
+            string serverInput = ServerIpComboBox.Text.Trim();
+            if (!string.IsNullOrWhiteSpace(serverInput))
+            {
+                // 1. If the user forgot http:// or https://, add it automatically
+                if (!serverInput.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    serverInput = "http://" + serverInput;
+                }
+
+                // 2. If the user didn't specify a port (e.g., the only colon is in "http://"), add the default :8089
+                int colonIndex = serverInput.IndexOf(':', serverInput.IndexOf("://") + 3);
+                if (colonIndex == -1)
+                {
+                    serverInput += ":8089";
+                }
+
+                // 3. Update the text box so the user sees the corrected URL
+                ServerIpComboBox.Text = serverInput;
+            }
+            
+            _settings.LastServerAddress = serverInput;
+            // -------------------------------------------------------------------
+
             _settings.AutoSkipCommercials = AutoSkipCheckBox.IsChecked ?? true;
             _settings.IsLightTheme = LightModeCheckBox.IsChecked ?? false;
             _settings.StartPlayersFullscreen = FullscreenCheckBox.IsChecked ?? false;
-			_settings.StickyGuideHeaders = StickyHeadersCheckBox.IsChecked ?? true;
-			if (GuideDurationBox.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out int parsedHours))
+            _settings.StickyGuideHeaders = StickyHeadersCheckBox.IsChecked ?? true;
+            
+            if (GuideDurationBox.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out int parsedHours))
             {
                 _settings.GuideDurationHours = parsedHours;
             }
+            
             SettingsManager.Save(_settings);
             ApplyTheme(_settings.IsLightTheme);
 
@@ -207,6 +249,12 @@ namespace ChannelsNativeTest
 
         private void Page_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            // --- NEW: Prevent Backspace from exiting the page if typing in a TextBox ---
+            if (e.Key == Key.Back && e.OriginalSource is TextBox)
+            {
+                return; // Let the TextBox handle the backspace normally!
+            }
+
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
                 NavigationService?.GoBack();

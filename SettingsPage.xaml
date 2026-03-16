@@ -93,9 +93,19 @@
                                 </ToggleButton.Template>
                             </ToggleButton>
                             
-                            <ContentPresenter IsHitTestVisible="False" Margin="15,0,30,0" VerticalAlignment="Center" HorizontalAlignment="Left"
+                            <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False" Margin="15,0,30,0" VerticalAlignment="Center" HorizontalAlignment="Left"
                                               Content="{TemplateBinding SelectionBoxItem}" 
                                               ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"/>
+                            
+                            <TextBox x:Name="PART_EditableTextBox"
+                                     Style="{x:Null}"
+                                     Margin="10,0,30,0" Padding="5,0,0,0"
+                                     VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                                     Background="Transparent" 
+                                     Foreground="{TemplateBinding Foreground}"
+                                     FontSize="{TemplateBinding FontSize}"
+                                     BorderThickness="0"
+                                     Visibility="Collapsed"/>
                             
                             <Popup x:Name="Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
                                 <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="2" CornerRadius="8" Margin="0,5,0,0" MinWidth="{TemplateBinding ActualWidth}">
@@ -107,34 +117,21 @@
                         </Grid>
                         
                         <ControlTemplate.Triggers>
+                            <Trigger Property="IsEditable" Value="True">
+                                <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="ContentSite" Property="Visibility" Value="Hidden"/>
+                            </Trigger>
+                            
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="BorderBrush" Value="{DynamicResource LiveBorder}"/>
                             </Trigger>
                             <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                                <Setter Property="BorderBrush" Value="{DynamicResource StatusConnecting}"/>
+                                 <Setter Property="BorderBrush" Value="{DynamicResource StatusConnecting}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-        </Style>
-		<Style TargetType="ComboBoxItem">
-            <Setter Property="Background" Value="{DynamicResource PanelBackground}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Style.Triggers>
-                <Trigger Property="IsHighlighted" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource LiveHover}"/>
-                    <Setter Property="Foreground" Value="White"/>
-                </Trigger>
-                
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource LiveBorder}"/>
-                    <Setter Property="Foreground" Value="White"/>
-                </Trigger>
-            </Style.Triggers>
         </Style>
 		
     </Page.Resources>
@@ -160,7 +157,10 @@
             <TextBox x:Name="LocalRemoteUrlBox" FontSize="18" Padding="10" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource StatusConnecting}" BorderBrush="Transparent" BorderThickness="0" Margin="0,0,0,30" IsReadOnly="True"/>
             
             <TextBlock Text="DVR Server IP Address (Optional)" FontSize="16" Foreground="{DynamicResource TextSecondary}" Margin="5,0,0,5"/>
-            <TextBox x:Name="ServerIpTextBox" FontSize="18" Padding="10" Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="2" Margin="0,0,0,30"/>
+            
+            <ComboBox x:Name="ServerIpComboBox" IsEditable="True" FontSize="18" Padding="10" 
+                      Background="{DynamicResource CardBackground}" Foreground="{DynamicResource TextPrimary}" 
+                      BorderThickness="0" Margin="0,0,0,30"/>
 
             <TextBlock Text="Playback Preferences" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,15"/>
             <CheckBox x:Name="AutoSkipCheckBox" Content="Auto-Skip Commercials in Movies" Style="{StaticResource BigCheckBox}"/>
