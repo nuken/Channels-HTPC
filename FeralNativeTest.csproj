@@ -13,6 +13,10 @@
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets\appicon.ico</ApplicationIcon>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <SplashScreen Include="splash.png" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="FontAwesome.Sharp" Version="6.6.0" />
