@@ -175,8 +175,8 @@ namespace ChannelsNativeTest
             try
             {
                 if (!string.IsNullOrWhiteSpace(show.ImageUrl))
-                    // Decode to 400px since this is a larger header image
-                    SelectedShowImage.Source = LoadOptimizedImage(show.ImageUrl, 400); 
+                    // FIXED: Revert to standard loading for the single header image to ensure it draws instantly
+                    SelectedShowImage.Source = new BitmapImage(new Uri(show.ImageUrl)); 
             }
             catch { }
 

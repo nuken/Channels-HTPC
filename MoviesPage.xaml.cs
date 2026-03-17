@@ -179,8 +179,8 @@ namespace ChannelsNativeTest
 
                 if (!string.IsNullOrWhiteSpace(movie.PosterUrl))
                 {
-                    // Use the RAM-friendly image loader (decode to 400px wide for the modal)
-                    try { ModalImage.Source = LoadOptimizedImage(movie.PosterUrl, 400); } catch { }
+                    // FIXED: Revert to standard loading for the single modal image to ensure it draws instantly
+                    try { ModalImage.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(movie.PosterUrl)); } catch { }
                 }
 
                 ModalOverlay.Visibility = Visibility.Visible;
