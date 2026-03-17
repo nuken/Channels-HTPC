@@ -27,8 +27,9 @@ namespace ChannelsNativeTest
 
         private async void Page_Loaded(object sender, RoutedEventArgs e)
         {
-            _baseUrl = _settings.LastServerAddress; // <-- Adjusted to use the loaded settings
-
+            _settings = SettingsManager.Load();
+            _baseUrl = _settings.LastServerAddress;
+			
             if (string.IsNullOrWhiteSpace(_baseUrl))
             {
                 LoadingText.Text = "⚠️ No DVR Server IP configured in Settings.";
@@ -187,6 +188,24 @@ namespace ChannelsNativeTest
 
             // Get all episodes for this specific show
             var showEpisodes = _allEpisodes.Where(ep => ep.ShowId == show.Id).ToList();
+
+            // --- FIXED: Populate Extended Metadata safely ---
+            if (_settings.ShowExtendedMetadata && showEpisodes.Any())
+            {
+                var firstEp = showEpisodes.First();
+                ModalExtendedData.Visibility = Visibility.Visible;
+                
+                ModalRating.Text = !string.IsNullOrWhiteSpace(firstEp.ContentRating) ? firstEp.ContentRating : "NR";
+                RatingBorder.Visibility = string.IsNullOrWhiteSpace(firstEp.ContentRating) ? Visibility.Collapsed : Visibility.Visible;
+
+                // Safely check if lists exist before attempting to join them
+                ModalTags.Text = (firstEp.Tags != null && firstEp.Tags.Any()) ? string.Join(" • ", firstEp.Tags) : "";
+                ModalCast.Text = (firstEp.Cast != null && firstEp.Cast.Any()) ? $"Starring: {string.Join(", ", firstEp.Cast.Take(6))}" : "";
+            }
+            else
+            {
+                ModalExtendedData.Visibility = Visibility.Collapsed;
+            }
             
             // Group the episodes by Season Number, sorting the Seasons descending (newest season at the top)
             var seasons = showEpisodes.GroupBy(ep => ep.SeasonNumber).OrderByDescending(g => g.Key).ToList();

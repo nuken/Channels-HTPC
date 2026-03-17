@@ -34,7 +34,8 @@ namespace ChannelsNativeTest
 
         private async void Page_Loaded(object sender, RoutedEventArgs e)
         {
-            string baseUrl = _settings.LastServerAddress;
+            _settings = SettingsManager.Load();
+			string baseUrl = _settings.LastServerAddress;
 
             if (string.IsNullOrWhiteSpace(baseUrl))
             {

@@ -25,6 +25,7 @@ namespace ChannelsNativeTest
             AutoSkipCheckBox.IsChecked = _settings.AutoSkipCommercials;
             LightModeCheckBox.IsChecked = _settings.IsLightTheme;
             FullscreenCheckBox.IsChecked = _settings.StartPlayersFullscreen;
+			ShowExtendedMetadata.IsChecked = _settings.ShowExtendedMetadata;
 
             // NEW: Load Guide Duration
             if (_settings.GuideDurationHours == 8) GuideDurationBox.SelectedIndex = 1;
@@ -286,6 +287,7 @@ namespace ChannelsNativeTest
             _settings.IsLightTheme = LightModeCheckBox.IsChecked ?? false;
             _settings.StartPlayersFullscreen = FullscreenCheckBox.IsChecked ?? false;
             _settings.StickyGuideHeaders = StickyHeadersCheckBox.IsChecked ?? true;
+			_settings.ShowExtendedMetadata = ShowExtendedMetadata.IsChecked ?? false;
             
             if (GuideDurationBox.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out int parsedHours))
             {
