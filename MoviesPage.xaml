@@ -186,11 +186,22 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <TextBlock x:Name="ModalTitle" Grid.Row="0" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" TextWrapping="Wrap"/>
+                       <TextBlock x:Name="ModalTitle" Grid.Row="0" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" TextWrapping="Wrap"/>
                         
-                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,10,0,20">
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,10,0,10">
                             <TextBlock x:Name="ModalYear" FontSize="16" Foreground="{DynamicResource LiveBorder}" FontWeight="Bold" Margin="0,0,15,0"/>
                             <TextBlock x:Name="ModalDuration" FontSize="16" Foreground="{DynamicResource TextSecondary}"/>
+                        </StackPanel>
+
+                        <StackPanel x:Name="ModalExtendedData" Grid.Row="1" Margin="0,35,0,15" Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <Border x:Name="RatingBorder" Background="{DynamicResource LiveBorder}" CornerRadius="4" Padding="6,2" Margin="0,0,10,0">
+                                    <TextBlock x:Name="ModalRating" FontSize="12" FontWeight="Bold" Foreground="White"/>
+                                </Border>
+                                <TextBlock x:Name="ModalTags" FontSize="13" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock x:Name="ModalDirectors" FontSize="13" Foreground="{DynamicResource TextSecondary}" FontStyle="Italic" Margin="0,0,0,2"/>
+                            <TextBlock x:Name="ModalCast" FontSize="13" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" LineHeight="18"/>
                         </StackPanel>
 
                         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">

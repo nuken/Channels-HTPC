@@ -593,6 +593,18 @@ public string? ChannelImageUrl
 
         [System.Text.Json.Serialization.JsonPropertyName("created_at")] 
         public long CreatedAt { get; set; }
+		
+		[System.Text.Json.Serialization.JsonPropertyName("content_rating")]
+        public string? ContentRating { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("tags")]
+        public List<string>? Tags { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("cast")]
+        public List<string>? Cast { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("directors")]
+        public List<string>? Directors { get; set; }
 
         // We use image_url based on your JSON sample!
         [System.Text.Json.Serialization.JsonPropertyName("image_url")]
@@ -657,5 +669,9 @@ public string? ChannelImageUrl
         [System.Text.Json.Serialization.JsonPropertyName("episode_number")] public int EpisodeNumber { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("image_url")] public string ImageUrl { get; set; } = "";
         [System.Text.Json.Serialization.JsonPropertyName("commercials")] public List<double>? Commercials { get; set; }
+		[System.Text.Json.Serialization.JsonPropertyName("content_rating")] public string? ContentRating { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("tags")] public List<string>? Tags { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("cast")] public List<string>? Cast { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("full_summary")] public string? FullSummary { get; set; }
     }
 }

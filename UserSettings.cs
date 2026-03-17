@@ -24,6 +24,7 @@ namespace ChannelsNativeTest
 		public int GuideDurationHours { get; set; } = 4;
         public int WebServerPort { get; set; } = 0;
         public bool StickyGuideHeaders { get; set; } = true;
+		public bool ShowExtendedMetadata { get; set; } = false;
         public List<ExternalStream> ExternalStreams { get; set; } = new List<ExternalStream>();
     }
 

@@ -16,17 +16,18 @@ namespace ChannelsNativeTest
         private List<Episode> _allEpisodes = new List<Episode>();
         private List<TvShow> _allShows = new List<TvShow>(); 
         private string _baseUrl = "";
+		private UserSettings _settings;
 
         public ShowsPage()
         {
             InitializeComponent();
+            _settings = SettingsManager.Load(); // <-- Moved this here so it's never null!
             this.Loaded += Page_Loaded;
         }
 
         private async void Page_Loaded(object sender, RoutedEventArgs e)
         {
-            var settings = SettingsManager.Load();
-            _baseUrl = settings.LastServerAddress;
+            _baseUrl = _settings.LastServerAddress; // <-- Adjusted to use the loaded settings
 
             if (string.IsNullOrWhiteSpace(_baseUrl))
             {
@@ -160,33 +161,105 @@ namespace ChannelsNativeTest
             }
         }
 
+        private System.Windows.Controls.Button? _selectedSeasonButton;
+
         private void OpenEpisodesView(TvShow show)
         {
             ShowsScrollViewer.Visibility = Visibility.Collapsed;
             EpisodesView.Visibility = Visibility.Visible;
             ToggleFiltersButton.Visibility = Visibility.Collapsed;
-			FilterBar.Visibility = Visibility.Collapsed;
-			
+            FilterBar.Visibility = Visibility.Collapsed;
+            
             PageTitle.Text = $"🍿 {show.Name.ToUpper()}";
             BackButton.Content = "🔙 Back to Shows";
 
             SelectedShowTitle.Text = show.Name;
             SelectedShowCount.Text = $"{show.EpisodeCount} Recorded Episodes";
-            try
+            SelectedShowImage.Source = null; // Clear the previous show poster so it doesn't ghost
+            if (!string.IsNullOrWhiteSpace(show.ImageUrl))
             {
-                if (!string.IsNullOrWhiteSpace(show.ImageUrl))
-                    // FIXED: Revert to standard loading for the single header image to ensure it draws instantly
-                    SelectedShowImage.Source = new BitmapImage(new Uri(show.ImageUrl)); 
+                LoadModalImageAsync(SelectedShowImage, show.ImageUrl, 400); 
             }
-            catch { }
 
+            SeasonsStackPanel.Children.Clear();
+            EpisodesStackPanel.Children.Clear();
+            _selectedSeasonButton = null;
+
+            // Get all episodes for this specific show
+            var showEpisodes = _allEpisodes.Where(ep => ep.ShowId == show.Id).ToList();
+            
+            // Group the episodes by Season Number, sorting the Seasons descending (newest season at the top)
+            var seasons = showEpisodes.GroupBy(ep => ep.SeasonNumber).OrderByDescending(g => g.Key).ToList();
+
+            if (!seasons.Any()) return;
+
+            // Dynamically create the Season buttons
+            foreach (var seasonGroup in seasons)
+            {
+                int seasonNum = seasonGroup.Key;
+                // If the DVR labels it Season 0, it's usually "Specials" or "Extras"
+                string seasonText = seasonNum == 0 ? "Specials" : $"Season {seasonNum}";
+
+                var btn = new Button
+                {
+                    Content = new TextBlock { Text = seasonText, FontSize = 16, FontWeight = FontWeights.Bold },
+                    Style = (Style)FindResource("SeasonButton"),
+                    Tag = seasonGroup.ToList() // Store the episodes for this season inside the button's memory
+                };
+
+                btn.Click += SeasonButton_Click;
+                SeasonsStackPanel.Children.Add(btn);
+            }
+
+            // Auto-select the latest season by default when the page opens
+            if (SeasonsStackPanel.Children.Count > 0)
+            {
+                var latestSeasonBtn = (Button)SeasonsStackPanel.Children[0];
+                SelectSeason(latestSeasonBtn);
+                
+                // Drop focus immediately into the Episodes list so the user can just hit "Play"
+                if (EpisodesStackPanel.Children.Count > 0)
+                    ((UIElement)EpisodesStackPanel.Children[0]).Focus();
+            }
+        }
+
+        private void SeasonButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn)
+            {
+                SelectSeason(btn);
+            }
+        }
+
+        private void SelectSeason(Button btn)
+        {
+            // 1. Reset the styling of the previously selected button
+            if (_selectedSeasonButton != null)
+            {
+                _selectedSeasonButton.Background = Brushes.Transparent;
+                _selectedSeasonButton.SetResourceReference(Button.ForegroundProperty, "TextSecondary");
+            }
+
+            // 2. Highlight the newly clicked button
+            _selectedSeasonButton = btn;
+            _selectedSeasonButton.SetResourceReference(Button.BackgroundProperty, "CardHoverBackground");
+            _selectedSeasonButton.SetResourceReference(Button.ForegroundProperty, "TextPrimary");
+
+            // 3. Render the episodes for this specific season
+            if (btn.Tag is List<Episode> seasonEpisodes)
+            {
+                RenderEpisodesList(seasonEpisodes);
+            }
+        }
+
+        private void RenderEpisodesList(List<Episode> episodes)
+        {
             EpisodesStackPanel.Children.Clear();
 
-            var showEpisodes = _allEpisodes.Where(ep => ep.ShowId == show.Id)
-                                           .OrderByDescending(ep => ep.SeasonNumber)
-                                           .ThenByDescending(ep => ep.EpisodeNumber).ToList();
+            // Order episodes within the season (Newest episode at the top)
+            var sortedEpisodes = episodes.OrderByDescending(ep => ep.EpisodeNumber).ToList();
 
-            foreach (var ep in showEpisodes)
+            foreach (var ep in sortedEpisodes)
             {
                 var btn = new Button
                 {
@@ -196,11 +269,9 @@ namespace ChannelsNativeTest
 
                 var sp = new StackPanel();
                 
-                // NEW: Bind the subtext to the master theme blue!
                 var seasonText = new TextBlock { Text = $"Season {ep.SeasonNumber} • Episode {ep.EpisodeNumber}", FontWeight = FontWeights.Bold, FontSize = 14 };
                 seasonText.SetResourceReference(TextBlock.ForegroundProperty, "LiveBorder");
                 
-                // NEW: Bind the episode title to the master theme text color!
                 var titleText = new TextBlock { Text = ep.EpisodeTitle, FontSize = 18, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 5, 0, 0), TextWrapping = TextWrapping.Wrap };
                 titleText.SetResourceReference(TextBlock.ForegroundProperty, "TextPrimary");
 
@@ -211,11 +282,7 @@ namespace ChannelsNativeTest
                 btn.Click += Episode_Click;
                 EpisodesStackPanel.Children.Add(btn);
             }
-
-            if (EpisodesStackPanel.Children.Count > 0)
-                ((UIElement)EpisodesStackPanel.Children[0]).Focus();
         }
-
         private void Episode_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is Episode ep)
@@ -300,6 +367,33 @@ namespace ChannelsNativeTest
             bitmap.EndInit();
             // Removed Freeze() here as well!
             return bitmap;
+        }
+		
+		// --- NEW: Bulletproof Async Image Loader for Modals ---
+        private async void LoadModalImageAsync(System.Windows.Controls.Image imgControl, string url, int width)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(url)) return;
+                
+                // 1. Download the raw image bytes in the background (Bypasses WPF's HTTP bug)
+                using var client = new System.Net.Http.HttpClient();
+                var bytes = await client.GetByteArrayAsync(url);
+                using var stream = new System.IO.MemoryStream(bytes);
+                
+                // 2. Decode the memory stream safely (Bypasses the "Gold Rush" JPEG crash)
+                var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+                bitmap.BeginInit();
+                bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                bitmap.DecodePixelWidth = width;
+                bitmap.StreamSource = stream;
+                bitmap.EndInit();
+                bitmap.Freeze(); // 100% safe to freeze now that the download is complete!
+                
+                // 3. Assign the completely processed image to the UI
+                imgControl.Source = bitmap;
+            }
+            catch { }
         }
     }
 }

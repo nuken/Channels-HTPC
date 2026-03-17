@@ -161,8 +161,6 @@ namespace ChannelsNativeTest
         }
 
 
-        // --- YOUR ORIGINAL MODAL & NAVIGATION LOGIC ---
-
         private void HomeButton_Click(object sender, RoutedEventArgs e) => NavigationService?.GoBack();
 
         private void MovieCard_Click(object sender, RoutedEventArgs e)
@@ -177,10 +175,29 @@ namespace ChannelsNativeTest
                 ModalDuration.Text = movie.DisplayDuration;
                 ModalSummary.Text = movie.Summary;
 
+                ModalImage.Source = null; // Clear the previous movie poster so it doesn't ghost
                 if (!string.IsNullOrWhiteSpace(movie.PosterUrl))
                 {
-                    // FIXED: Revert to standard loading for the single modal image to ensure it draws instantly
-                    try { ModalImage.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(movie.PosterUrl)); } catch { }
+                    LoadModalImageAsync(ModalImage, movie.PosterUrl, 400);
+                }
+
+                // --- NEW: Populate Extended Metadata if Setting is ON ---
+                if (_settings.ShowExtendedMetadata)
+                {
+                    ModalExtendedData.Visibility = Visibility.Visible;
+                    
+                    ModalRating.Text = !string.IsNullOrWhiteSpace(movie.ContentRating) ? movie.ContentRating : "NR";
+                    RatingBorder.Visibility = string.IsNullOrWhiteSpace(movie.ContentRating) ? Visibility.Collapsed : Visibility.Visible;
+
+                    ModalTags.Text = movie.Tags != null ? string.Join(" • ", movie.Tags) : "";
+                    ModalDirectors.Text = movie.Directors != null ? $"Directed by: {string.Join(", ", movie.Directors)}" : "";
+                    
+                    // Grab up to the first 6 cast members so it doesn't overflow the screen
+                    ModalCast.Text = movie.Cast != null ? $"Starring: {string.Join(", ", movie.Cast.Take(6))}" : "";
+                }
+                else
+                {
+                    ModalExtendedData.Visibility = Visibility.Collapsed;
                 }
 
                 ModalOverlay.Visibility = Visibility.Visible;
@@ -283,7 +300,32 @@ namespace ChannelsNativeTest
             // Removed Freeze() here as well!
             return bitmap;
         }		
-		
+		// --- NEW: Bulletproof Async Image Loader for Modals ---
+        private async void LoadModalImageAsync(System.Windows.Controls.Image imgControl, string url, int width)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(url)) return;
+                
+                // 1. Download the raw image bytes in the background (Bypasses WPF's HTTP bug)
+                using var client = new System.Net.Http.HttpClient();
+                var bytes = await client.GetByteArrayAsync(url);
+                using var stream = new System.IO.MemoryStream(bytes);
+                
+                // 2. Decode the memory stream safely (Bypasses the "Gold Rush" JPEG crash)
+                var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+                bitmap.BeginInit();
+                bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                bitmap.DecodePixelWidth = width;
+                bitmap.StreamSource = stream;
+                bitmap.EndInit();
+                bitmap.Freeze(); // 100% safe to freeze now that the download is complete!
+                
+                // 3. Assign the completely processed image to the UI
+                imgControl.Source = bitmap;
+            }
+            catch { }
+        }
     }
 	
 	// --- NEW: XAML CONVERTER FOR RAM OPTIMIZATION ---
@@ -310,5 +352,5 @@ namespace ChannelsNativeTest
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) 
             => throw new NotImplementedException();
-    }
+    }	
 }

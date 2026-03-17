@@ -65,6 +65,33 @@
                 </Setter.Value>
             </Setter>
         </Style>
+		<Style TargetType="Button" x:Key="SeasonButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+            <Setter Property="Margin" Value="0,0,0,5"/>
+            <Setter Property="Padding" Value="15,12"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="BgBorder" Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="BgBorder" Property="BorderBrush" Value="{DynamicResource StatusConnecting}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Page.Resources>
 
     <Grid Margin="40">
@@ -144,18 +171,32 @@
 
         <Grid x:Name="EpisodesView" Grid.Row="2" Visibility="Collapsed">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280"/> <ColumnDefinition Width="180"/> <ColumnDefinition Width="*"/>   </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" Margin="0,0,20,0">
-                <Image x:Name="SelectedShowImage" Width="280" Height="400" Stretch="UniformToFill" Margin="0,0,0,15"/>
-                <TextBlock x:Name="SelectedShowTitle" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" TextWrapping="Wrap" Margin="0,0,0,10"/>
-                <TextBlock x:Name="SelectedShowCount" FontSize="16" Foreground="{DynamicResource TextSecondary}"/>
+                <Image x:Name="SelectedShowImage" Width="260" Height="360" Stretch="UniformToFill" Margin="0,0,0,15"/>
+                <TextBlock x:Name="SelectedShowTitle" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                <TextBlock x:Name="SelectedShowCount" FontSize="14" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,15"/>
+
+                <StackPanel x:Name="ModalExtendedData" Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <Border x:Name="RatingBorder" Background="{DynamicResource LiveBorder}" CornerRadius="4" Padding="6,2" Margin="0,0,10,0">
+                            <TextBlock x:Name="ModalRating" FontSize="12" FontWeight="Bold" Foreground="White"/>
+                        </Border>
+                        <TextBlock x:Name="ModalTags" FontSize="13" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <TextBlock x:Name="ModalCast" FontSize="13" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" LineHeight="18"/>
+                </StackPanel>
             </StackPanel>
 
-            <ScrollViewer x:Name="EpisodesScrollViewer" Grid.Column="1" VerticalScrollBarVisibility="Hidden" Focusable="False">
-                <StackPanel x:Name="EpisodesStackPanel" Margin="10,0,0,0"/>
+            <Border Grid.Column="1" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0" Margin="0,0,20,0" Padding="0,0,10,0">
+                <ScrollViewer x:Name="SeasonsScrollViewer" VerticalScrollBarVisibility="Hidden" Focusable="False">
+                    <StackPanel x:Name="SeasonsStackPanel"/>
+                </ScrollViewer>
+            </Border>
+
+            <ScrollViewer x:Name="EpisodesScrollViewer" Grid.Column="2" VerticalScrollBarVisibility="Hidden" Focusable="False">
+                <StackPanel x:Name="EpisodesStackPanel" Margin="0,0,10,0"/>
             </ScrollViewer>
         </Grid>
 
