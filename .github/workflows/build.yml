@@ -21,7 +21,7 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Publish .NET Application
-      run: dotnet publish FeralCode.csproj -c Release -r win-x64
+      run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 
     - name: Compile Inno Setup Installer
       run: |
