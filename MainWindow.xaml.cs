@@ -318,9 +318,23 @@ namespace FeralCode
                                 if (ActivePlayerWindow.HandleRemoteKey(direction)) return; 
                             }
 
-                            targetWindow.Activate();
-                            
-                            // 2. Map remote commands to raw Windows Virtual Keys
+                            // 2. Force the app to the absolute front of Windows
+                            if (!targetWindow.IsActive)
+                            {
+                                targetWindow.Show();
+                                targetWindow.Activate();
+                                targetWindow.Topmost = true;  
+                                targetWindow.Topmost = false; 
+                                targetWindow.Focus();
+                            }
+
+                            // 3. If nothing on the screen is highlighted yet, establish a starting point!
+                            if (System.Windows.Input.Keyboard.FocusedElement == null)
+                            {
+                                targetWindow.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Next));
+                            }
+
+                            // 4. Map remote commands to raw Windows Virtual Keys
                             byte vk = 0;
                             if (direction == "up") vk = 0x26;
                             else if (direction == "down") vk = 0x28;
@@ -328,8 +342,7 @@ namespace FeralCode
                             else if (direction == "right") vk = 0x27;
                             else if (direction == "enter") vk = 0x0D;
 
-                            // 3. Fire the hardware key into the Windows message pump!
-                            // This allows DropDowns to open natively and triggers KeyDown events flawlessly.
+                            // 5. Fire the hardware key into the Windows message pump!
                             if (vk != 0)
                             {
                                 keybd_event(vk, 0, 0, 0); // Key press

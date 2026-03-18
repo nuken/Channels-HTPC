@@ -35,6 +35,7 @@ namespace FeralCode
 
             // 4. Boot up the Main Window
             var mainWindow = new MainWindow();
+			Application.Current.MainWindow = mainWindow;
             mainWindow.Show();
 
             // 5. Close the Splash Screen seamlessly
