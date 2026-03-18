@@ -191,6 +191,10 @@
     <div class="header">
         <h1><i class="fa-solid fa-mobile-screen"></i> Control</h1>
         <div>
+            <button class="open-remote-btn" onclick="switchTab('pc')" style="background: #333; margin-right: 10px; padding: 8px 12px;" title="PC Trackpad">
+                <i class="fa-solid fa-desktop"></i>
+            </button>
+
             <button class="open-remote-btn" onclick="toggleMinimize()" style="background: #333; margin-right: 10px; padding: 8px 12px;">
                 <i class="fa-solid fa-window-minimize" style="position: relative; top: -3px;"></i>
             </button>
@@ -209,8 +213,10 @@
         <button id="tab-tv" class="tab-btn active" onclick="switchTab('tv')"><i class="fa-solid fa-tv"></i> Live</button>
         <button id="tab-shows" class="tab-btn" onclick="switchTab('shows')"><i class="fa-solid fa-film"></i> Shows</button>
         <button id="tab-movies" class="tab-btn" onclick="switchTab('movies')"><i class="fa-solid fa-clapperboard"></i> Movies</button>
-        <button id="tab-apps" class="tab-btn" onclick="switchTab('apps')"><i class="fa-solid fa-border-all"></i> Apps</button>
-        <button id="tab-pc" class="tab-btn" onclick="switchTab('pc')"><i class="fa-solid fa-desktop"></i> PC</button>
+        
+        <button id="tab-apps" class="tab-btn" onclick="switchTab('apps')"><i class="fa-solid fa-layer-group"></i> Apps</button>
+        
+        <button id="tab-multi" class="tab-btn" onclick="switchTab('multi')"><i class="fa-solid fa-border-all"></i> Multi</button>
     </div>
 
     <div id="view-tv">
@@ -272,6 +278,18 @@
     <div id="view-apps" style="display: none; padding: 15px; margin-top: 10px;">
         <div class="movie-grid" id="appsGrid">
             <div class="loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading Apps...</div>
+        </div>
+    </div>
+	
+	<div id="view-multi" style="display: none; padding: 15px; margin-top: 10px;">
+        <div style="background: #1e1e1e; padding: 25px; border-radius: 12px; border: 1px solid #333; text-align: center;">
+            <i class="fa-solid fa-border-all" style="font-size: 48px; color: #007ACC; margin-bottom: 15px;"></i>
+            <h2 style="margin: 0 0 10px 0;">Multiview Control</h2>
+            <p style="color: #aaa; font-size: 14px; margin-bottom: 25px;">Select an action to command the Quad Player</p>
+            
+            <button onclick="/* We will wire this up next */" style="background: #CC0000; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; width: 100%; font-size: 16px; margin-bottom: 10px; cursor: pointer;">
+                <i class="fa-solid fa-tv"></i> Launch Multiview Setup
+            </button>
         </div>
     </div>
 
@@ -360,18 +378,24 @@
         }
         
         // --- Tab Logic ---
+        // --- Tab Logic ---
         function switchTab(tabName) {
             document.getElementById('view-tv').style.display = tabName === 'tv' ? 'block' : 'none';
             document.getElementById('view-movies').style.display = tabName === 'movies' ? 'block' : 'none';
             document.getElementById('view-shows').style.display = tabName === 'shows' ? 'block' : 'none';
             document.getElementById('view-apps').style.display = tabName === 'apps' ? 'block' : 'none';
             document.getElementById('view-pc').style.display = tabName === 'pc' ? 'flex' : 'none'; 
+            document.getElementById('view-multi').style.display = tabName === 'multi' ? 'block' : 'none'; 
             
             document.getElementById('tab-tv').className = tabName === 'tv' ? 'tab-btn active' : 'tab-btn';
             document.getElementById('tab-movies').className = tabName === 'movies' ? 'tab-btn active' : 'tab-btn';
             document.getElementById('tab-shows').className = tabName === 'shows' ? 'tab-btn active' : 'tab-btn';
             document.getElementById('tab-apps').className = tabName === 'apps' ? 'tab-btn active' : 'tab-btn';
-            document.getElementById('tab-pc').className = tabName === 'pc' ? 'tab-btn active' : 'tab-btn';
+            document.getElementById('tab-multi').className = tabName === 'multi' ? 'tab-btn active' : 'tab-btn';
+
+            // Highlight the PC button in the header if it is active
+            const pcBtn = document.querySelector('.header button[onclick="switchTab(\'pc\')"]');
+            if (pcBtn) pcBtn.style.color = tabName === 'pc' ? '#FFD700' : 'white';
 
             if (tabName === 'movies' && document.getElementById('movieGrid').innerHTML.includes('Loading')) loadMovies();
             if (tabName === 'shows' && document.getElementById('showGrid').innerHTML.includes('Loading')) loadShows();
