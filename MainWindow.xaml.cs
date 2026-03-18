@@ -22,11 +22,9 @@ namespace FeralCode
     {
         public static LibVLC SharedLibVLC { get; private set; } = null!;
         
-        // 1. MainWindow now permanently owns the Web Server and tracks the Active Player!
         private WebApplication? _webHost;
         public PlayerWindow? ActivePlayerWindow { get; set; }
 
-        // --- NEW: WINDOWS NATIVE MOUSE CONTROLS ---
         [DllImport("user32.dll")]
         private static extern bool SetCursorPos(int X, int Y);
 
@@ -38,15 +36,14 @@ namespace FeralCode
 
         [DllImport("user32.dll")]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
-		
-		private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+        
+        private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
         private const uint MOUSEEVENTF_LEFTUP = 0x0004;
         private const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
         private const uint MOUSEEVENTF_RIGHTUP = 0x0010;
 
         public struct POINT { public int X; public int Y; }
         public class MouseDelta { public int dx { get; set; } public int dy { get; set; } }
-        // ------------------------------------------
 
         public MainWindow()
         {
@@ -58,13 +55,11 @@ namespace FeralCode
                 "--no-keyboard-events", 
                 "--avcodec-threads=0",  
                 "--ts-trust-pcr",
-				"--network-caching=3000",
-				"--live-caching=3000"
+                "--network-caching=3000",
+                "--live-caching=3000"
             );
 
-            // 2. Start the server the absolute second the app launches!
             StartWebServer();
-
             MainFrame.Navigate(new StartPage());
         }
 
@@ -82,8 +77,6 @@ namespace FeralCode
         {
             try
             {
-                // Attempting to start a TcpListener is the most reliable way 
-                // to see if Windows is still locking the port from a previous run.
                 using (var tcpListener = new TcpListener(IPAddress.Loopback, port))
                 {
                     tcpListener.Start();
@@ -101,10 +94,7 @@ namespace FeralCode
         {
             for (int port = startPort; port <= endPort; port++)
             {
-                if (IsPortAvailable(port))
-                {
-                    return port;
-                }
+                if (IsPortAvailable(port)) return port;
             }
             throw new Exception($"No available ports found in the range {startPort}-{endPort}.");
         }
@@ -120,21 +110,17 @@ namespace FeralCode
 
                     if (portToUse == 0)
                     {
-                        // First run ever: find an initial available port in the range
                         portToUse = GetAvailablePort(12345, 12445);
                         settings.WebServerPort = portToUse;
                         SettingsManager.Save(settings);
                     }
                     else
                     {
-                        // The user has a saved port. If Windows is currently locking it 
-                        // (e.g., TIME_WAIT state from a recent restart), wait and retry.
-                        int maxRetries = 30; // Max 30 seconds of waiting
+                        int maxRetries = 30; 
                         int currentTry = 0;
-                        
                         while (!IsPortAvailable(portToUse) && currentTry < maxRetries)
                         {
-                            await Task.Delay(1000); // Wait 1 second before polling again
+                            await Task.Delay(1000);
                             currentTry++;
                         }
                     }
@@ -142,28 +128,21 @@ namespace FeralCode
                     var options = new WebApplicationOptions { ContentRootPath = AppContext.BaseDirectory };
                     var builder = WebApplication.CreateBuilder(options);
                     
-                    // Bind to the dynamically verified port
                     builder.WebHost.UseUrls($"http://*:{portToUse}");
 
-                    // --- GLOBAL JSON RULES ---
                     builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(opt => 
                     {
                         opt.SerializerOptions.IncludeFields = true;
-                        // Force the server to keep your exact C# capitalization!
                         opt.SerializerOptions.PropertyNamingPolicy = null; 
                     });
 
                     _webHost = builder.Build();
-                    _webHost.UseStaticFiles();
 
-                    _webHost.MapGet("/", () => 
-                    {
-                        string filePath = System.IO.Path.Combine(AppContext.BaseDirectory, "wwwroot", "index.html");
-                        if (System.IO.File.Exists(filePath)) return Results.File(filePath, "text/html");
-                        return Results.Content("<h1>Error: wwwroot/index.html not found!</h1>", "text/html");
-                    });
+                    // --- EMBEDDED FILES LOGIC ---
+                    var embeddedProvider = new ManifestEmbeddedFileProvider(Assembly.GetExecutingAssembly(), "wwwroot");
+                    _webHost.UseDefaultFiles(new DefaultFilesOptions { FileProvider = embeddedProvider });
+                    _webHost.UseStaticFiles(new StaticFileOptions { FileProvider = embeddedProvider });
 
-                    // --- FIXED LIVE TV COLLECTIONS ROUTE ---
                     _webHost.MapGet("/api/remote/collections", async () => 
                     {
                         var settings = SettingsManager.Load();
@@ -172,16 +151,12 @@ namespace FeralCode
                         try {
                             var api = new ChannelsApi();
                             var collections = await api.GetChannelCollectionsAsync(settings.LastServerAddress);
-                            
-                            // Extract just the string names for the HTML dropdown, and add the default "All Channels"
                             var names = collections.Select(c => c.name).ToList();
                             names.Insert(0, "All Channels");
-                            
                             return Results.Ok(names);
                         } catch { return Results.Ok(new string[] { "All Channels" }); }
                     });
 
-                    // --- FIXED GUIDE ROUTE (WITH LOGO MAPPING) ---
                     _webHost.MapGet("/api/remote/guide", async (string? collection, string? search) => 
                     {
                         var settings = SettingsManager.Load();
@@ -191,7 +166,6 @@ namespace FeralCode
                             var api = new ChannelsApi();
                             var channels = await api.GetChannelsAsync(settings.LastServerAddress);
                             
-                            // NEW: Fetch stations for fallback logos!
                             var stations = await api.GetStationsAsync(settings.LastServerAddress);
                             var stationLogoDict = stations
                                 .Where(s => !string.IsNullOrWhiteSpace(s.Id) && !string.IsNullOrWhiteSpace(s.Logo))
@@ -202,14 +176,12 @@ namespace FeralCode
                             
                             foreach (var c in channels)
                             {
-                                // 1. Map missing logos using the station dictionary
                                 string targetId = !string.IsNullOrWhiteSpace(c.StationId) ? c.StationId : c.CallSign;
                                 if (string.IsNullOrWhiteSpace(c.ImageUrl) && !string.IsNullOrWhiteSpace(targetId))
                                 {
                                     if (stationLogoDict.TryGetValue(targetId, out string? mappedLogo)) c.ImageUrl = mappedLogo;
                                 }
 
-                                // 2. Fix broken relative URL paths so the phone can load them
                                 if (!string.IsNullOrWhiteSpace(c.ImageUrl))
                                 {
                                     if (c.ImageUrl.StartsWith("/")) 
@@ -218,12 +190,10 @@ namespace FeralCode
                                         c.ImageUrl = c.ImageUrl.Replace("tmsimg://", $"{settings.LastServerAddress.TrimEnd('/')}/tmsimg/", StringComparison.OrdinalIgnoreCase);
                                 }
 
-                                // 3. Attach the currently playing show
                                 var match = guide.FirstOrDefault(g => g.ChannelNumber == c.Number);
                                 if (match != null && match.Airings != null) c.CurrentAirings = match.Airings;
                             }
                             
-                            // Apply Collection Filter
                             if (!string.IsNullOrEmpty(collection) && collection != "All Channels")
                             {
                                 var collections = await api.GetChannelCollectionsAsync(settings.LastServerAddress);
@@ -234,7 +204,6 @@ namespace FeralCode
                                 }
                             }
 
-                            // Apply Search Filter
                             if (!string.IsNullOrWhiteSpace(search))
                             {
                                 channels = channels.Where(c => c.HasIdentifier(search)).ToList();
@@ -250,7 +219,6 @@ namespace FeralCode
                         var api = new ChannelsApi();
                         var channels = await api.GetChannelsAsync(settings.LastServerAddress);
                         
-                        // Find the index of the requested channel so the Ch Up / Ch Down buttons still work perfectly!
                         int startIndex = channels.FindIndex(c => c.Number == channelNumber);
                         if (startIndex == -1) startIndex = 0;
 
@@ -265,7 +233,6 @@ namespace FeralCode
                         return Results.Ok();
                     });
 
-                    // --- GLOBAL COMMANDS ---
                     _webHost.MapPost("/api/remote/home", () => 
                     { 
                         Application.Current.Dispatcher.Invoke(() => 
@@ -277,10 +244,7 @@ namespace FeralCode
                     });
                     
                     _webHost.MapPost("/api/remote/stop", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.Close()); return Results.Ok(); });
-                    
-                    // Picture In Picture toggle mapped to your requested endpoint
                     _webHost.MapPost("/api/toggle_pip", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.TogglePiP()); return Results.Ok(); });
-                    // Closed Captions toggle mapped to your requested endpoint
                     _webHost.MapPost("/api/remote/cc", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.ToggleClosedCaptions()); return Results.Ok(); });
                     _webHost.MapPost("/api/remote/volup", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.VolumeUp()); return Results.Ok(); });
                     _webHost.MapPost("/api/remote/voldown", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.VolumeDown()); return Results.Ok(); });
@@ -303,14 +267,13 @@ namespace FeralCode
                         return Results.Ok();
                     });
 
-                   // --- NATIVE HARDWARE KEYBOARD SIMULATION ---
+                    // --- CLEAN REMOTE D-PAD LOGIC ---
                     _webHost.MapPost("/api/remote/key/{direction}", (string direction) =>
                     {
                         Application.Current.Dispatcher.Invoke(() =>
                         {
                             Window targetWindow = Application.Current.MainWindow;
 
-                            // 1. If the Player is open, it gets absolute priority!
                             if (ActivePlayerWindow != null && ActivePlayerWindow.IsVisible)
                             {
                                 targetWindow = ActivePlayerWindow;
@@ -319,7 +282,6 @@ namespace FeralCode
 
                             targetWindow.Activate();
                             
-                            // 2. Map remote commands to raw Windows Virtual Keys
                             byte vk = 0;
                             if (direction == "up") vk = 0x26;
                             else if (direction == "down") vk = 0x28;
@@ -327,28 +289,23 @@ namespace FeralCode
                             else if (direction == "right") vk = 0x27;
                             else if (direction == "enter") vk = 0x0D;
 
-                            // 3. Fire the hardware key into the Windows message pump!
-                            // This allows DropDowns to open natively and triggers KeyDown events flawlessly.
                             if (vk != 0)
                             {
-                                keybd_event(vk, 0, 0, 0); // Key press
-                                keybd_event(vk, 0, 0x0002, 0); // Key release
+                                keybd_event(vk, 0, 0, 0); 
+                                keybd_event(vk, 0, 0x0002, 0); 
                             }
                         });
                         return Results.Ok();
                     });
                     
-                    // --- FIXED MOVIE ROUTE ---
                     _webHost.MapGet("/api/remote/movies", async () => 
                     {
                         var settings = SettingsManager.Load();
-
                         if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) 
                             return Results.Ok(new List<Movie>());
 
                         var api = new ChannelsApi();
                         var movies = await api.GetMoviesAsync(settings.LastServerAddress);
-                        
                         return Results.Ok(movies);
                     });
 
@@ -367,7 +324,6 @@ namespace FeralCode
                                 
                                 if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
 
-                                // Launch the movie on the TV directly from the phone!
                                 ActivePlayerWindow = new PlayerWindow(streamUrl, selectedMovie.Title, selectedMovie.PosterUrl, selectedMovie.Commercials);
                                 ActivePlayerWindow.Closed += (s, args) => ActivePlayerWindow = null; 
                                 ActivePlayerWindow.Show();
@@ -390,7 +346,6 @@ namespace FeralCode
                         return Results.Ok();
                     });
 
-                    // --- NEW: REMOTE SCRUBBING ROUTES ---
                     _webHost.MapPost("/api/remote/scrub/start/{direction}", (string direction) =>
                     {
                         Application.Current.Dispatcher.Invoke(() =>
@@ -411,13 +366,11 @@ namespace FeralCode
                         return Results.Ok();
                     });
                     
-                    // --- NEW: SYSTEM MOUSE TRACKPAD ROUTES ---
                     _webHost.MapPost("/api/system/mouse", async (HttpContext context) =>
                     {
                         var delta = await context.Request.ReadFromJsonAsync<MouseDelta>();
                         if (delta != null && GetCursorPos(out POINT p))
                         {
-                            // Move the physical Windows cursor!
                             SetCursorPos(p.X + delta.dx, p.Y + delta.dy);
                         }
                         return Results.Ok();
@@ -425,7 +378,6 @@ namespace FeralCode
 
                     _webHost.MapPost("/api/system/click/{type}", (string type) =>
                     {
-                        // Simulate physical hardware clicks
                         if (type == "left") 
                         {
                             mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
@@ -439,26 +391,21 @@ namespace FeralCode
                         return Results.Ok();
                     });
                     
-                    // --- FIXED TV SHOWS LIBRARY ---
                     _webHost.MapGet("/api/remote/shows", async () => 
                     {
                         var settings = SettingsManager.Load();
-
                         if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Ok(new List<TvShow>());
                         var api = new ChannelsApi();
                         return Results.Ok(await api.GetShowsAsync(settings.LastServerAddress));
                     });
 
-                    // --- FIXED EPISODES LIBRARY ---
                     _webHost.MapGet("/api/remote/episodes/{showId}", async (string showId) => 
                     {
                         var settings = SettingsManager.Load();
-
                         if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Ok(new List<Episode>());
                         var api = new ChannelsApi();
                         var allEpisodes = await api.GetEpisodesAsync(settings.LastServerAddress);
                         
-                        // Filter to the clicked show, and sort so the newest episodes are at the top!
                         var showEpisodes = allEpisodes.Where(e => e.ShowId == showId)
                                                       .OrderByDescending(e => e.SeasonNumber)
                                                       .ThenByDescending(e => e.EpisodeNumber).ToList();
@@ -481,7 +428,6 @@ namespace FeralCode
                                 
                                 if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
 
-                                // Launch using the exact same constructor we used for Movies!
                                 ActivePlayerWindow = new PlayerWindow(streamUrl, displayTitle, ep.ImageUrl, ep.Commercials);
                                 ActivePlayerWindow.Closed += (s, args) => ActivePlayerWindow = null; 
                                 ActivePlayerWindow.Show();
@@ -491,7 +437,6 @@ namespace FeralCode
                         return Results.NotFound();
                     });
                     
-                    // --- FIXED EXTERNAL APPS ROUTES ---
                     _webHost.MapGet("/api/remote/apps", () => 
                     {
                         var settings = SettingsManager.Load();
@@ -512,38 +457,19 @@ namespace FeralCode
                                     {
                                         string input = stream.StreamId.Trim();
                                         string finalUrl = input.StartsWith("http") ? input : $"https://www.netflix.com/watch/{input}";
-                                        
-                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo 
-                                        { 
-                                            FileName = "msedge", 
-                                            Arguments = $"--app={finalUrl} --start-fullscreen", 
-                                            UseShellExecute = true 
-                                        });
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "msedge", Arguments = $"--app={finalUrl} --start-fullscreen", UseShellExecute = true });
                                     }
                                     else if (stream.Service.ToLower() == "disney+")
                                     {
                                         string input = stream.StreamId.Trim();
                                         string finalUrl = input.StartsWith("http") ? input : $"https://www.disneyplus.com/play/{input}";
-                                        
-                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo 
-                                        { 
-                                            FileName = "msedge", 
-                                            Arguments = $"--app={finalUrl} --start-fullscreen", 
-                                            UseShellExecute = true 
-                                        });
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "msedge", Arguments = $"--app={finalUrl} --start-fullscreen", UseShellExecute = true });
                                     }
-                                    // NEW: Prime Video PWA Launcher
                                     else if (stream.Service.ToLower() == "prime video")
                                     {
                                         string input = stream.StreamId.Trim();
                                         string finalUrl = input.StartsWith("http") ? input : $"https://www.primevideo.com/watch/{input}";
-                                        
-                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo 
-                                        { 
-                                            FileName = "msedge", 
-                                            Arguments = $"--app={finalUrl} --start-fullscreen", 
-                                            UseShellExecute = true 
-                                        });
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "msedge", Arguments = $"--app={finalUrl} --start-fullscreen", UseShellExecute = true });
                                     }
                                     else
                                     {
