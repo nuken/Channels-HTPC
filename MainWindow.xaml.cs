@@ -13,6 +13,8 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Net;
 using System.Net.Sockets;
+using Microsoft.Extensions.FileProviders;
+using System.Reflection;
 
 namespace FeralCode
 {
@@ -151,15 +153,16 @@ namespace FeralCode
                         opt.SerializerOptions.PropertyNamingPolicy = null; 
                     });
 
-                    _webHost = builder.Build();
-                    _webHost.UseStaticFiles();
+                   _webHost = builder.Build();
 
-                    _webHost.MapGet("/", () => 
-                    {
-                        string filePath = System.IO.Path.Combine(AppContext.BaseDirectory, "wwwroot", "index.html");
-                        if (System.IO.File.Exists(filePath)) return Results.File(filePath, "text/html");
-                        return Results.Content("<h1>Error: wwwroot/index.html not found!</h1>", "text/html");
-                    });
+                    // --- NEW: USE EMBEDDED FILES INSTEAD OF THE HARD DRIVE ---
+                    var embeddedProvider = new ManifestEmbeddedFileProvider(Assembly.GetExecutingAssembly(), "wwwroot");
+
+                    // This automatically serves index.html when you visit the root IP!
+                    _webHost.UseDefaultFiles(new DefaultFilesOptions { FileProvider = embeddedProvider });
+                    
+                    // This serves all other files (like your logo) from memory
+                    _webHost.UseStaticFiles(new StaticFileOptions { FileProvider = embeddedProvider });
 
                     // --- FIXED LIVE TV COLLECTIONS ROUTE ---
                     _webHost.MapGet("/api/remote/collections", async () => 
