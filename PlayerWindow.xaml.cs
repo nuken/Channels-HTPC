@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using LibVLCSharp.Shared;
 using System.Windows.Controls;
 
-namespace ChannelsNativeTest
+namespace FeralCode
 {
     public partial class PlayerWindow : Window
     {

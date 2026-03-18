@@ -10,7 +10,7 @@ using System.Windows.Navigation;
 using System.Globalization;
 using System.Windows.Data;
 
-namespace ChannelsNativeTest
+namespace FeralCode
 {
     public partial class MoviesPage : Page
     {

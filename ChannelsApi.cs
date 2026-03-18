@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using Zeroconf;
 
-namespace ChannelsNativeTest
+namespace FeralCode
 {
     public class DvrServer
     {

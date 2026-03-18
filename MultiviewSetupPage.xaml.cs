@@ -5,7 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 
-namespace ChannelsNativeTest
+namespace FeralCode
 {
     public partial class MultiviewSetupPage : Page
     {

@@ -1,4 +1,4 @@
-<Window x:Class="ChannelsNativeTest.MainWindow"
+<Window x:Class="FeralCode.MainWindow"
         Icon="Assets/appicon.ico"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"

@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Navigation;
 
-namespace ChannelsNativeTest
+namespace FeralCode
 {
     public partial class StartPage : Page
     {

@@ -9,7 +9,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 
-namespace ChannelsNativeTest
+namespace FeralCode
 {
     public partial class ShowsPage : Page
     {

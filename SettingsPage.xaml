@@ -1,4 +1,4 @@
-<Page x:Class="ChannelsNativeTest.SettingsPage"
+<Page x:Class="FeralCode.SettingsPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       Title="Settings" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}"

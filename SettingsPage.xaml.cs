@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using System.Net;
 using System.Net.Sockets;
 
-namespace ChannelsNativeTest
+namespace FeralCode
 {
     public partial class SettingsPage : Page
     {

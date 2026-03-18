@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows;
 
-namespace ChannelsNativeTest
+namespace FeralCode
 {
     public partial class App : Application
     {

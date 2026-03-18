@@ -1,7 +1,7 @@
-<Page x:Class="ChannelsNativeTest.MoviesPage"
+<Page x:Class="FeralCode.MoviesPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-	  xmlns:local="clr-namespace:ChannelsNativeTest"
+	  xmlns:local="clr-namespace:FeralCode"
       Title="Movies" Background="{DynamicResource AppBackground}" Foreground="{DynamicResource TextPrimary}"
       PreviewKeyDown="Page_PreviewKeyDown" KeepAlive="True">
 

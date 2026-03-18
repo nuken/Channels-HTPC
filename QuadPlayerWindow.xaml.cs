@@ -6,7 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using LibVLCSharp.Shared;
 
-namespace ChannelsNativeTest
+namespace FeralCode
 {
     public partial class QuadPlayerWindow : Window
     {

@@ -14,7 +14,7 @@ using System.Runtime.InteropServices;
 using System.Net;
 using System.Net.Sockets;
 
-namespace ChannelsNativeTest
+namespace FeralCode
 {
     public partial class MainWindow : Window
     {

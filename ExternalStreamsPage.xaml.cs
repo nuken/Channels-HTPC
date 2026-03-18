@@ -5,7 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 
-namespace ChannelsNativeTest
+namespace FeralCode
 {
     public partial class ExternalStreamsPage : Page
     {

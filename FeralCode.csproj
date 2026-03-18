@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+	<AssemblyName>FeralHTPC</AssemblyName>
+    <Version>0.1.0</Version>
+    <Authors>Bobby</Authors>
+    <Company>Feral HTPC Development</Company>
+    <Product>Feral HTPC</Product>
+    <Description>A Feral Windows HTPC client.</Description>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\appicon.ico</ApplicationIcon>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <SplashScreen Include="splash.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FontAwesome.Sharp" Version="6.6.0" />
+    <Resource Include="Assets\appicon.ico" />
+    
+    <Content Include="wwwroot\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="LibVLCSharp.WPF" Version="3.9.6" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23" />
+    <PackageReference Include="Zeroconf" Version="3.7.16" />
+  </ItemGroup>
+
+</Project>

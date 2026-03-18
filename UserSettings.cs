@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 
-namespace ChannelsNativeTest
+namespace FeralCode
 {
     // --- NEW: The Data Model for your Custom App Links ---
     public class ExternalStream

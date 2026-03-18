@@ -14,7 +14,7 @@ using System.Windows.Controls;
 using System.Windows.Navigation;
 using System.Windows.Input;
 
-namespace ChannelsNativeTest
+namespace FeralCode
 {
     public partial class GuidePage : Page
     {
