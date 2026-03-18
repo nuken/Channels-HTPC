@@ -280,7 +280,7 @@ namespace FeralCode
                                 if (ActivePlayerWindow.HandleRemoteKey(direction)) return; 
                             }
 
-                            targetWindow.Activate();
+                            if (!targetWindow.IsActive) targetWindow.Activate();
                             
                             byte vk = 0;
                             if (direction == "up") vk = 0x26;

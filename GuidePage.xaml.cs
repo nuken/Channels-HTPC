@@ -419,11 +419,30 @@ namespace FeralCode
                 return;
             }
 
+            // --- NEW: THE INDESTRUCTIBLE FOCUS RECOVERY ---
+            // If an arrow key is pressed, but the focus has slipped out of the guide 
+            // (e.g., clicked the background), this instantly snaps it back to the first channel!
+            bool isArrowKey = e.Key == Key.Up || e.Key == Key.Down || e.Key == Key.Left || e.Key == Key.Right;
+            bool isFocusedOnAiring = Keyboard.FocusedElement is Button fBtn && fBtn.Tag is Airing;
+
+            if (isArrowKey && !isFocusedOnAiring)
+            {
+                if (_displayedChannels.Count > 0 && _displayedChannels[0].CurrentAirings?.Count > 0)
+                {
+                    var targetBtn = FindButtonForAiring(GuideItemsControl, _displayedChannels[0].CurrentAirings![0]);
+                    targetBtn?.Focus();
+                    e.Handled = true; 
+                    return;
+                }
+            }
+
             if (e.Key == System.Windows.Input.Key.Left || e.Key == System.Windows.Input.Key.Right)
             {
                 if (e.Key == System.Windows.Input.Key.Left)
                 {
-                    if ((DateTime.Now - _lastLeftKeyPressTime).TotalMilliseconds < 350)
+                    // FIXED: Dropped to 150ms. 350ms was too long and caused accidental teleports to Channel 1
+                    // when you were just trying to scrub left quickly!
+                    if ((DateTime.Now - _lastLeftKeyPressTime).TotalMilliseconds < 150)
                     {
                         e.Handled = true;
                         
