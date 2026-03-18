@@ -71,6 +71,16 @@ namespace FeralCode
 
             UpdateFocus();
         }
+		
+		// --- NEW: API Gateway for the Mobile Remote ---
+        public void SetActiveQuadrant(int index)
+        {
+            if (index >= 0 && index < _totalActive)
+            {
+                _activeIndex = index;
+                UpdateFocus();
+            }
+        }
 
         private void UpdateFocus()
         {
