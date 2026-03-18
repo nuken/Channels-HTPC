@@ -153,16 +153,15 @@ namespace FeralCode
                         opt.SerializerOptions.PropertyNamingPolicy = null; 
                     });
 
-                   _webHost = builder.Build();
+                    _webHost = builder.Build();
+                    _webHost.UseStaticFiles();
 
-                    // --- NEW: USE EMBEDDED FILES INSTEAD OF THE HARD DRIVE ---
-                    var embeddedProvider = new ManifestEmbeddedFileProvider(Assembly.GetExecutingAssembly(), "wwwroot");
-
-                    // This automatically serves index.html when you visit the root IP!
-                    _webHost.UseDefaultFiles(new DefaultFilesOptions { FileProvider = embeddedProvider });
-                    
-                    // This serves all other files (like your logo) from memory
-                    _webHost.UseStaticFiles(new StaticFileOptions { FileProvider = embeddedProvider });
+                    _webHost.MapGet("/", () => 
+                    {
+                        string filePath = System.IO.Path.Combine(AppContext.BaseDirectory, "wwwroot", "index.html");
+                        if (System.IO.File.Exists(filePath)) return Results.File(filePath, "text/html");
+                        return Results.Content("<h1>Error: wwwroot/index.html not found!</h1>", "text/html");
+                    });
 
                     // --- FIXED LIVE TV COLLECTIONS ROUTE ---
                     _webHost.MapGet("/api/remote/collections", async () => 
@@ -318,23 +317,9 @@ namespace FeralCode
                                 if (ActivePlayerWindow.HandleRemoteKey(direction)) return; 
                             }
 
-                            // 2. Force the app to the absolute front of Windows
-                            if (!targetWindow.IsActive)
-                            {
-                                targetWindow.Show();
-                                targetWindow.Activate();
-                                targetWindow.Topmost = true;  
-                                targetWindow.Topmost = false; 
-                                targetWindow.Focus();
-                            }
-
-                            // 3. If nothing on the screen is highlighted yet, establish a starting point!
-                            if (System.Windows.Input.Keyboard.FocusedElement == null)
-                            {
-                                targetWindow.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.Next));
-                            }
-
-                            // 4. Map remote commands to raw Windows Virtual Keys
+                            targetWindow.Activate();
+                            
+                            // 2. Map remote commands to raw Windows Virtual Keys
                             byte vk = 0;
                             if (direction == "up") vk = 0x26;
                             else if (direction == "down") vk = 0x28;
@@ -342,7 +327,8 @@ namespace FeralCode
                             else if (direction == "right") vk = 0x27;
                             else if (direction == "enter") vk = 0x0D;
 
-                            // 5. Fire the hardware key into the Windows message pump!
+                            // 3. Fire the hardware key into the Windows message pump!
+                            // This allows DropDowns to open natively and triggers KeyDown events flawlessly.
                             if (vk != 0)
                             {
                                 keybd_event(vk, 0, 0, 0); // Key press
