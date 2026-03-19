@@ -23,7 +23,24 @@ namespace FeralCode
         public static LibVLC SharedLibVLC { get; private set; } = null!;
         
         private WebApplication? _webHost;
-        public PlayerWindow? ActivePlayerWindow { get; set; }
+
+        // --- NEW: Upgraded Property to automatically force window activation ---
+        private PlayerWindow? _activePlayerWindow;
+        public PlayerWindow? ActivePlayerWindow 
+        { 
+            get => _activePlayerWindow;
+            set
+            {
+                _activePlayerWindow = value;
+                if (_activePlayerWindow != null)
+                {
+                    _activePlayerWindow.Closed += (s, e) => 
+                    {
+                        this.Activate(); // Force OS to give MainWindow control again
+                    };
+                }
+            }
+        }
 
         [DllImport("user32.dll")]
         private static extern bool SetCursorPos(int X, int Y);
@@ -61,6 +78,28 @@ namespace FeralCode
 
             StartWebServer();
             MainFrame.Navigate(new StartPage());
+
+            // --- NEW: Global D-Pad Failsafe ---
+            this.PreviewKeyDown += MainWindow_PreviewKeyDown;
+        }
+
+        // --- NEW: The Void Recovery System ---
+        private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            // If focus is ever completely lost into the void, pressing an arrow key 
+            // will instantly snap it back into the active page so the remote never dies.
+            bool isArrowKey = e.Key == System.Windows.Input.Key.Up || e.Key == System.Windows.Input.Key.Down || 
+                              e.Key == System.Windows.Input.Key.Left || e.Key == System.Windows.Input.Key.Right;
+
+            if (isArrowKey && (System.Windows.Input.Keyboard.FocusedElement == null || 
+                               System.Windows.Input.Keyboard.FocusedElement is Window || 
+                               System.Windows.Input.Keyboard.FocusedElement is Frame))
+            {
+                if (MainFrame.Content is UIElement page)
+                {
+                    page.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First));
+                }
+            }
         }
 
         protected override async void OnClosed(EventArgs e)
@@ -107,11 +146,8 @@ namespace FeralCode
                 {
                     var settings = SettingsManager.Load();
                     
-                    // Default to 12345 if this is the first run
                     int portToUse = settings.WebServerPort == 0 ? 12345 : settings.WebServerPort;
 
-                    // 1. Quick check: Is the port blocked just because we quickly restarted the app?
-                    // Give Windows 3 seconds to release its temporary network lock.
                     int retry = 0;
                     while (!IsPortAvailable(portToUse) && retry < 3)
                     {
@@ -119,13 +155,9 @@ namespace FeralCode
                         retry++;
                     }
 
-                    // 2. If it is STILL taken, another program is permanently hogging it. 
-                    // Scan upwards to find the next available port!
                     if (!IsPortAvailable(portToUse))
                     {
                         portToUse = GetAvailablePort(12345, 12445); 
-                        
-                        // Save the new port so the app tries to stick to it next time
                         settings.WebServerPort = portToUse;
                         SettingsManager.Save(settings);
                     }
@@ -143,7 +175,6 @@ namespace FeralCode
 
                     _webHost = builder.Build();
 
-                    // --- EMBEDDED FILES LOGIC ---
                     var embeddedProvider = new ManifestEmbeddedFileProvider(Assembly.GetExecutingAssembly(), "wwwroot");
                     _webHost.UseDefaultFiles(new DefaultFilesOptions { FileProvider = embeddedProvider });
                     _webHost.UseStaticFiles(new StaticFileOptions { FileProvider = embeddedProvider });
@@ -238,46 +269,45 @@ namespace FeralCode
                         return Results.Ok();
                     });
 
-                    // --- GLOBAL COMMANDS ---
                     _webHost.MapPost("/api/remote/home", () => 
                     { 
                         Application.Current.Dispatcher.Invoke(() => 
                         {
-                            // NEW: Check if a Multiview Quad Window is open, and close it!
                             var quadWindow = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
                             if (quadWindow != null) quadWindow.Close();
 
-                            // Existing logic: Close single player and navigate back
                             if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
-                            if (MainFrame.Content is Page page && page.NavigationService.CanGoBack) page.NavigationService.GoBack();
+                            
+                            if (MainFrame.Content is Page page)
+                            {
+                                if (page.NavigationService.CanGoBack) 
+                                    page.NavigationService.GoBack();
+                                else if (page is not StartPage) 
+                                    page.NavigationService.Navigate(new StartPage());
+                            }
                         }); 
                         return Results.Ok(); 
                     });
 					
-					// --- LAUNCH MULTIVIEW SETUP ---
                     _webHost.MapPost("/api/remote/multiview/setup", () => 
                     {
                         Application.Current.Dispatcher.Invoke(() => 
                         {
-                            // 1. Close any active video players
                             if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
                             
                             var quadWindow = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
                             if (quadWindow != null) quadWindow.Close();
 
-                            // 2. Jump the main UI straight to the Multiview Setup Page
                             if (MainFrame.Content is not MultiviewSetupPage)
                             {
                                 MainFrame.Navigate(new MultiviewSetupPage());
                             }
                             
-                            // 3. Make sure the main window has focus so the D-Pad works immediately
                             Application.Current.MainWindow.Activate();
                         });
                         return Results.Ok();
                     });
 					
-					// --- MULTIVIEW AUDIO SWITCHER ---
                     _webHost.MapPost("/api/remote/multiview/audio/{index}", (int index) => 
                     {
                         Application.Current.Dispatcher.Invoke(() => 
@@ -291,12 +321,10 @@ namespace FeralCode
                         return Results.Ok();
                     });
 
-                    // --- MINIMIZE / RESTORE WINDOW ---
                     _webHost.MapPost("/api/remote/minimize", () => 
                     {
                         Application.Current.Dispatcher.Invoke(() => 
                         {
-                            // NEW: Check if a Multiview Quad Window is actively running on the screen!
                             var quadWindow = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
 
                             Window targetWindow = Application.Current.MainWindow;
@@ -341,19 +369,16 @@ namespace FeralCode
                         return Results.Ok();
                     });
 
-                    // --- CLEAN REMOTE D-PAD LOGIC ---
                     _webHost.MapPost("/api/remote/key/{direction}", (string direction) =>
                     {
                         Application.Current.Dispatcher.Invoke(() =>
                         {
                             Window targetWindow = Application.Current.MainWindow;
 
-                            // NEW: Check if Multiview is open!
                             var quadWindow = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
                             
                             if (quadWindow != null && quadWindow.IsVisible)
                             {
-                                // Route the raw keystrokes directly to the Multiview window
                                 targetWindow = quadWindow;
                             }
                             else if (ActivePlayerWindow != null && ActivePlayerWindow.IsVisible)
@@ -481,10 +506,9 @@ namespace FeralCode
                         return Results.Ok(await api.GetShowsAsync(settings.LastServerAddress));
                     });
 
-                    // FIXED: Removed {showId} from the path. It now safely accepts it as a Query String!
                     _webHost.MapGet("/api/remote/episodes", async (string? showId) => 
                     {
-                        showId ??= ""; // If the ID is completely null, treat it as blank
+                        showId ??= ""; 
 
                         var settings = SettingsManager.Load();
                         if (string.IsNullOrWhiteSpace(settings.LastServerAddress)) return Results.Ok(new List<Episode>());

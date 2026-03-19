@@ -162,7 +162,18 @@ namespace FeralCode
         }
 
 
-        private void HomeButton_Click(object sender, RoutedEventArgs e) => NavigationService?.GoBack();
+        // --- NEW: SAFE NAVIGATION ---
+        private void HomeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (NavigationService != null && NavigationService.CanGoBack)
+            {
+                NavigationService.GoBack();
+            }
+            else
+            {
+                NavigationService?.Navigate(new StartPage());
+            }
+        }
 
         private void MovieCard_Click(object sender, RoutedEventArgs e)
         {
@@ -231,6 +242,7 @@ namespace FeralCode
                 
                 ModalOverlay.Visibility = Visibility.Collapsed;
                 ToggleFiltersButton.Visibility = Visibility.Visible;
+				_lastFocusedMovieButton?.Focus();
             }
         }
 
@@ -246,17 +258,26 @@ namespace FeralCode
                 }
             }
             
+            // --- NEW: SAFE NAVIGATION ---
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
+                e.Handled = true; // Stop WPF native navigation
+
                 if (FilterBar.Visibility == Visibility.Visible)
                 {
                     ApplyAndClose_Click(null!, null!);
                 }
                 else
                 {
-                    NavigationService?.GoBack();
+                    if (NavigationService != null && NavigationService.CanGoBack)
+                    {
+                        NavigationService.GoBack();
+                    }
+                    else
+                    {
+                        NavigationService?.Navigate(new StartPage());
+                    }
                 }
-                e.Handled = true;
                 return;
             }
 			

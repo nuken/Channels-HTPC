@@ -405,10 +405,19 @@ namespace FeralCode
                 }
             }
             
+            // --- NEW: SAFE NAVIGATION ---
             if (e.Key == System.Windows.Input.Key.Escape || e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)
             {
-                NavigationService?.GoBack();
-                e.Handled = true;
+                e.Handled = true; // Stop WPF native navigation
+                
+                if (NavigationService != null && NavigationService.CanGoBack)
+                {
+                    NavigationService.GoBack();
+                }
+                else
+                {
+                    NavigationService?.Navigate(new StartPage());
+                }
                 return;
             }
             
@@ -708,6 +717,7 @@ namespace FeralCode
                     mainWindow.ActivePlayerWindow = new PlayerWindow(baseUrl, _masterChannelList, channelIndex);
                     mainWindow.ActivePlayerWindow.Closed += (s, args) => mainWindow.ActivePlayerWindow = null; 
                     mainWindow.ActivePlayerWindow.Show();
+					_lastFocusedAiringButton?.Focus();
                 }
                 catch (Exception ex)
                 {
@@ -791,9 +801,17 @@ namespace FeralCode
             SettingsManager.Save(_settings);
         }
         
+        // --- NEW: SAFE NAVIGATION ---
         private void HomeButton_Click(object sender, RoutedEventArgs e)
         {
-            NavigationService?.GoBack();
+            if (NavigationService != null && NavigationService.CanGoBack)
+            {
+                NavigationService.GoBack();
+            }
+            else
+            {
+                NavigationService?.Navigate(new StartPage());
+            }
         }
     }
 }

@@ -134,14 +134,34 @@ namespace FeralCode
             };
         }
 
-        private void BackButton_Click(object sender, RoutedEventArgs e) => NavigationService?.GoBack();
+        // --- NEW: SAFE NAVIGATION ---
+        private void BackButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (NavigationService != null && NavigationService.CanGoBack)
+            {
+                NavigationService.GoBack();
+            }
+            else
+            {
+                NavigationService?.Navigate(new StartPage());
+            }
+        }
 
         private void Page_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            // --- NEW: SAFE NAVIGATION ---
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
-                NavigationService?.GoBack();
-                e.Handled = true;
+                e.Handled = true; // Stop WPF native navigation
+                
+                if (NavigationService != null && NavigationService.CanGoBack)
+                {
+                    NavigationService.GoBack();
+                }
+                else
+                {
+                    NavigationService?.Navigate(new StartPage());
+                }
             }
         }
     }

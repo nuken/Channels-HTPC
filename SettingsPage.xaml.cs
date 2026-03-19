@@ -233,9 +233,17 @@ namespace FeralCode
 
         // ----------------------------------
 
+        // --- NEW: SAFE NAVIGATION ---
         private void HomeButton_Click(object sender, RoutedEventArgs e)
         {
-            NavigationService?.GoBack();
+            if (NavigationService != null && NavigationService.CanGoBack)
+            {
+                NavigationService.GoBack();
+            }
+            else
+            {
+                NavigationService?.Navigate(new StartPage());
+            }
         }
 
         private void SaveButton_Click(object sender, RoutedEventArgs e)
@@ -324,16 +332,33 @@ namespace FeralCode
 
         private void Page_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            // --- NEW: Prevent Backspace from exiting the page if typing in a TextBox ---
+            // Prevent Backspace from exiting the page if typing in a TextBox
             if (e.Key == Key.Back && e.OriginalSource is TextBox)
             {
                 return; // Let the TextBox handle the backspace normally!
             }
 
+            // --- NEW: SAFE NAVIGATION ---
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
-                NavigationService?.GoBack();
+                e.Handled = true; // Stop WPF native navigation
+                
+                if (NavigationService != null && NavigationService.CanGoBack)
+                {
+                    NavigationService.GoBack();
+                }
+                else
+                {
+                    NavigationService?.Navigate(new StartPage());
+                }
+                return;
+            }
+
+            if (e.Key == Key.BrowserHome)
+            {
+                NavigationService?.Navigate(new StartPage());
                 e.Handled = true;
+                return;
             }
         }
     }

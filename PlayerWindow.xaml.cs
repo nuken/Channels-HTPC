@@ -683,20 +683,20 @@ namespace FeralCode
         }
 
         private void Overlay_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
-{
-    // Debounce: Only process this once every 100 milliseconds
-    if ((DateTime.Now - _lastMouseMove).TotalMilliseconds < 100) return;
-    _lastMouseMove = DateTime.Now;
+        {
+            // Debounce: Only process this once every 100 milliseconds
+            if ((DateTime.Now - _lastMouseMove).TotalMilliseconds < 100) return;
+            _lastMouseMove = DateTime.Now;
 
-    if (ControlBar.Visibility != Visibility.Visible)
-    {
-        ControlBar.Visibility = Visibility.Visible;
-        System.Windows.Input.Mouse.OverrideCursor = null;
-    }
+            if (ControlBar.Visibility != Visibility.Visible)
+            {
+                ControlBar.Visibility = Visibility.Visible;
+                System.Windows.Input.Mouse.OverrideCursor = null;
+            }
 
-    _uiTimer.Stop();
-    _uiTimer.Start();
-}
+            _uiTimer.Stop();
+            _uiTimer.Start();
+        }
 
         private void UiTimer_Tick(object? sender, EventArgs e)
         {
@@ -761,10 +761,30 @@ namespace FeralCode
                 ToggleSubtitles();
                 e.Handled = true;
             }
+            // --- NEW: Safe Handling of Escape & Back Keys ---
             else if (e.Key == System.Windows.Input.Key.Escape || e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)
             {
-                if (_isFullscreen) ToggleFullscreen();
-                else this.Close(); 
+                if (_isFullscreen) 
+                {
+                    ToggleFullscreen(); // Simply drop out of fullscreen if they are in it
+                }
+                else 
+                {
+                    this.Close(); // Safely shut the player down and reveal the background UI
+                }
+                e.Handled = true;
+            }
+            // --- NEW: Safely Trap 'BrowserHome' so it doesn't background-navigate! ---
+            else if (e.Key == System.Windows.Input.Key.BrowserHome)
+            {
+                // Force the background MainWindow to navigate Home
+                if (Application.Current.MainWindow is MainWindow main && main.MainFrame.Content is Page page)
+                {
+                    page.NavigationService?.Navigate(new StartPage());
+                }
+                
+                // Then immediately close the player window so the user sees the StartPage
+                this.Close();
                 e.Handled = true;
             }
 			else if (e.Key == System.Windows.Input.Key.MediaPlayPause)

@@ -166,6 +166,19 @@ namespace FeralCode
                 return;
             }
             
+            // --- NEW: Safely Trap 'BrowserHome' so it doesn't background-navigate! ---
+            if (e.Key == Key.BrowserHome)
+            {
+                if (Application.Current.MainWindow is MainWindow main && main.MainFrame.Content is Page page)
+                {
+                    page.NavigationService?.Navigate(new StartPage());
+                }
+                
+                this.Close();
+                e.Handled = true;
+                return;
+            }
+
             // --- NEW: Hardware Hotkeys ---
             if (e.Key == Key.F || e.Key == Key.F11)
             {
@@ -176,6 +189,14 @@ namespace FeralCode
             if (e.Key == Key.M)
             {
                 this.WindowState = WindowState.Minimized;
+                e.Handled = true;
+                return;
+            }
+            
+            if (e.Key == Key.MediaStop)
+            {
+                if (_isFullscreen) ToggleFullscreen();
+                else this.Close();
                 e.Handled = true;
                 return;
             }
@@ -253,6 +274,9 @@ namespace FeralCode
                 }
             }
             base.OnClosed(e);
+            
+            // --- NEW: Force the main window to regain focus immediately so the D-Pad stays alive ---
+            Application.Current.MainWindow?.Activate();
         }
     }
 }

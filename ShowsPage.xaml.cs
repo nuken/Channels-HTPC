@@ -16,12 +16,13 @@ namespace FeralCode
         private List<Episode> _allEpisodes = new List<Episode>();
         private List<TvShow> _allShows = new List<TvShow>(); 
         private string _baseUrl = "";
-		private UserSettings _settings;
+        private UserSettings _settings;
+        private Button? _lastFocusedShowButton; // --- NEW: Track the focused show poster ---
 
         public ShowsPage()
         {
             InitializeComponent();
-            _settings = SettingsManager.Load(); // <-- Moved this here so it's never null!
+            _settings = SettingsManager.Load(); 
             this.Loaded += Page_Loaded;
         }
 
@@ -29,7 +30,7 @@ namespace FeralCode
         {
             _settings = SettingsManager.Load();
             _baseUrl = _settings.LastServerAddress;
-			
+            
             if (string.IsNullOrWhiteSpace(_baseUrl))
             {
                 LoadingText.Text = "⚠️ No DVR Server IP configured in Settings.";
@@ -63,13 +64,13 @@ namespace FeralCode
             ApplyFilters(); 
             LoadingText.Visibility = Visibility.Collapsed;
         }
-		
-		private void Filter_Changed(object sender, RoutedEventArgs e)
+        
+        private void Filter_Changed(object sender, RoutedEventArgs e)
         {
             if (_allShows.Count > 0) ApplyFilters();
         }
-		
-		private void ToggleFilters_Click(object sender, RoutedEventArgs e)
+        
+        private void ToggleFilters_Click(object sender, RoutedEventArgs e)
         {
             if (FilterBar.Visibility == Visibility.Visible)
             {
@@ -115,8 +116,8 @@ namespace FeralCode
 
             RenderShowsGrid(filtered.ToList());
         }
-		
-		private void RenderShowsGrid(List<TvShow> showsToRender)
+        
+        private void RenderShowsGrid(List<TvShow> showsToRender)
         {
             ShowsWrapPanel.Children.Clear();
 
@@ -158,6 +159,7 @@ namespace FeralCode
         {
             if (sender is Button btn && btn.Tag is TvShow show)
             {
+                _lastFocusedShowButton = btn; // Save our exact spot in the grid!
                 OpenEpisodesView(show);
             }
         }
@@ -316,27 +318,52 @@ namespace FeralCode
                     mainWin.ActivePlayerWindow = new PlayerWindow(streamUrl, displayTitle, ep.ImageUrl, ep.Commercials);
                     mainWin.ActivePlayerWindow.Closed += (s, args) => mainWin.ActivePlayerWindow = null;
                     mainWin.ActivePlayerWindow.Show();
+
+                    // --- NEW FIX: Snap focus back to the episode button! ---
+                    btn.Focus();
                 }
             }
         }
 
+        // --- NEW: SAFE NAVIGATION ---
         private void BackButton_Click(object sender, RoutedEventArgs e)
         {
+            // If the filter bar is open, Back should simply close it.
+            if (FilterBar.Visibility == Visibility.Visible)
+            {
+                ApplyAndClose_Click(null!, null!);
+                return;
+            }
+
             if (EpisodesView.Visibility == Visibility.Visible)
             {
                 EpisodesView.Visibility = Visibility.Collapsed;
-				FilterBar.Visibility = Visibility.Collapsed;
+                FilterBar.Visibility = Visibility.Collapsed;
                 ShowsScrollViewer.Visibility = Visibility.Visible;
                 PageTitle.Text = "🍿 TV SHOWS";
                 BackButton.Content = "🏠 Home";
                 ToggleFiltersButton.Visibility = Visibility.Visible;
-				
-                if (ShowsWrapPanel.Children.Count > 0)
+                
+                // Snap focus back to the show we were just looking at!
+                if (_lastFocusedShowButton != null && _lastFocusedShowButton.IsVisible)
+                {
+                    _lastFocusedShowButton.Focus();
+                }
+                else if (ShowsWrapPanel.Children.Count > 0)
+                {
                     ((UIElement)ShowsWrapPanel.Children[0]).Focus();
+                }
             }
             else
             {
-                NavigationService?.GoBack();
+                if (NavigationService != null && NavigationService.CanGoBack)
+                {
+                    NavigationService.GoBack();
+                }
+                else
+                {
+                    NavigationService?.Navigate(new StartPage());
+                }
             }
         }
 
@@ -344,8 +371,8 @@ namespace FeralCode
         {
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
+                e.Handled = true; // Stop WPF native navigation immediately
                 BackButton_Click(null!, null!);
-                e.Handled = true;
                 return;
             }
             if (e.Key == Key.BrowserHome)
@@ -361,7 +388,7 @@ namespace FeralCode
                 return;
             }
 
-            // --- NEW: THE SCROLLVIEWER BYPASS ---
+            // --- THE SCROLLVIEWER BYPASS ---
             // Forces the arrow keys to instantly move focus between Shows, Seasons, and Episodes
             if (e.Key == Key.Up || e.Key == Key.Down || e.Key == Key.Left || e.Key == Key.Right)
             {
@@ -392,8 +419,8 @@ namespace FeralCode
                 e.Handled = true;
             }
         }
-		
-		// --- NEW: RAM SAVER FOR IMAGES ---
+        
+        // --- RAM SAVER FOR IMAGES ---
         private System.Windows.Media.Imaging.BitmapImage LoadOptimizedImage(string imageUrl, int width = 300)
         {
             var bitmap = new System.Windows.Media.Imaging.BitmapImage();
@@ -401,11 +428,10 @@ namespace FeralCode
             bitmap.UriSource = new Uri(imageUrl);
             bitmap.DecodePixelWidth = width; 
             bitmap.EndInit();
-            // Removed Freeze() here as well!
             return bitmap;
         }
-		
-		// --- NEW: Bulletproof Async Image Loader for Modals ---
+        
+        // --- Bulletproof Async Image Loader for Modals ---
         private async void LoadModalImageAsync(System.Windows.Controls.Image imgControl, string url, int width)
         {
             try

@@ -14,7 +14,7 @@ namespace FeralCode
         private List<Channel> _selectedChannels = new List<Channel>();
         private string _baseUrl = "";
         private UserSettings _settings;
-		private Button? _lastFocusedChannel;
+        private Button? _lastFocusedChannel;
 
         public MultiviewSetupPage()
         {
@@ -173,7 +173,18 @@ namespace FeralCode
             quadWindow.Show();
         }
 
-        private void HomeButton_Click(object sender, RoutedEventArgs e) => NavigationService?.GoBack();
+        // --- NEW: SAFE NAVIGATION ---
+        private void HomeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (NavigationService != null && NavigationService.CanGoBack)
+            {
+                NavigationService.GoBack();
+            }
+            else
+            {
+                NavigationService?.Navigate(new StartPage());
+            }
+        }
 
         private void Page_PreviewKeyDown(object sender, KeyEventArgs e)
         {
@@ -187,8 +198,16 @@ namespace FeralCode
                     return;
                 }
                 
-                NavigationService?.GoBack();
-                e.Handled = true;
+                e.Handled = true; // Stop WPF native navigation
+
+                if (NavigationService != null && NavigationService.CanGoBack)
+                {
+                    NavigationService.GoBack();
+                }
+                else
+                {
+                    NavigationService?.Navigate(new StartPage());
+                }
                 return;
             }
             
