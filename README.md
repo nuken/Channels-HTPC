@@ -108,17 +108,17 @@ From the mobile remote interface, you can:
     <td align="center">
       <img src="./IMAGES/shows1.png" alt="Start Page" width="300" />
       <br />
-      Start Page
+      Shows Page
     </td>
     <td align="center">
       <img src="./IMAGES/shows2.png" alt="Live TV" width="300" />
       <br />
-      Live TV
+      Episodes Page
     </td>
     <td align="center">
       <img src="./IMAGES/shows3.png" alt="TV Player" width="300" />
       <br />
-      TV Player
+      Episodes Player
     </td>
   </tr>
    <tr>
