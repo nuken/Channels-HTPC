@@ -66,3 +66,116 @@ From the mobile remote interface, you can:
   * **Control Playback:** Manage Play, Pause, Fast Forward, Rewind, Scrubbing, Closed Captions, and Picture-in-Picture.
   * **PC Trackpad:** Use your phone screen as a wireless trackpad and mouse for the Windows desktop.
   * **Global Window Control:** Minimize the HTPC, return to the Home menu, or close players from anywhere in the house.
+
+### Gallery
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="./IMAGES/start.png" alt="Start Page" width="300" />
+      <br />
+      Start Page
+    </td>
+    <td align="center">
+      <img src="./IMAGES/live.png" alt="Live TV" width="300" />
+      <br />
+      Live TV
+    </td>
+    <td align="center">
+      <img src="./IMAGES/tv.png" alt="TV Player" width="300" />
+      <br />
+      TV Player
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="./IMAGES/movies1.png" alt="Movies" width="300" />
+      <br />
+      Movies
+    </td>
+    <td align="center">
+      <img src="./IMAGES/movies2.png" alt="Movies Modal" width="300" />
+      <br />
+      Movies Modal
+    </td>
+    <td align="center">
+      <img src="./IMAGES/movies3.png" alt="Movies Player" width="300" />
+      <br />
+      Movies Player
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="./IMAGES/shows1.png" alt="Start Page" width="300" />
+      <br />
+      Start Page
+    </td>
+    <td align="center">
+      <img src="./IMAGES/shows2.png" alt="Live TV" width="300" />
+      <br />
+      Live TV
+    </td>
+    <td align="center">
+      <img src="./IMAGES/shows3.png" alt="TV Player" width="300" />
+      <br />
+      TV Player
+    </td>
+  </tr>
+   <tr>
+    <td align="center">
+      <img src="./IMAGES/multiview1.png" alt="Multiview Setup" width="300" />
+      <br />
+      Multiview Setup
+    </td>
+    <td align="center">
+      <img src="./IMAGES/multiview2.png" alt="Multiview Player" width="300" />
+      <br />
+      Multiview Player
+    </td>
+    <td align="center">
+      <img src="./IMAGES/settings.png" alt="Settings Page" width="300" />
+      <br />
+      Settings Page
+    </td>
+  </tr>
+  </table>
+  <table>
+  <tr>
+    <td align="center">
+      <img src="./IMAGES/remote1.png" alt="Remote 1" width="125" />
+      <br />
+      Remote 1
+    </td>
+    <td align="center">
+      <img src="./IMAGES/remote2.png" alt="Remote 2" width="125" />
+      <br />
+      Remote 2
+    </td>
+	<td align="center">
+      <img src="./IMAGES/remote3.png" alt="Remote 3" width="125" />
+      <br />
+      Remote 3
+    </td>
+    <td align="center">
+      <img src="./IMAGES/remote4.png" alt="Remote 4" width="125" />
+      <br />
+      Remote 4
+    </td>
+	<td align="center">
+      <img src="./IMAGES/remote5.png" alt="Remote 5" width="125" />
+      <br />
+      Remote 5
+    </td>
+    <td align="center">
+      <img src="./IMAGES/remote6.png" alt="Remote 6" width="125" />
+      <br />
+      Remote 6
+    </td>
+	<td align="center">
+      <img src="./IMAGES/remote7.png" alt="Remote 7" width="125" />
+      <br />
+      Remote 7
+    </td>
+  </tr>
+</table>
+
