@@ -138,6 +138,13 @@ From the mobile remote interface, you can:
       Settings Page
     </td>
   </tr>
+	<tr>
+		<td align="center">
+      <img src="./IMAGES/apps.png" alt="Apps Page" width="300" />
+      <br />
+      Apps Page
+    </td>
+  </tr>
   </table>
   <table>
   <tr>
@@ -177,5 +184,12 @@ From the mobile remote interface, you can:
       Remote 7
     </td>
   </tr>
+  <tr>
+    <td align="center">
+      <img src="./IMAGES/remote8.png" alt="Remote 8" width="125" />
+      <br />
+      Remote 8
+    </td>
+  </tr>		  
 </table>
 
