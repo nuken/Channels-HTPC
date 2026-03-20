@@ -48,6 +48,20 @@ namespace FeralCode
         public PlayerWindow(string baseUrl, List<Channel> channels, int startIndex)
         {
             InitializeComponent();
+			// --- NEW: Anti-Focus Stealing Fix ---
+            this.Loaded += (s, e) =>
+            {
+                this.Activate();
+                this.Topmost = true; // Rip the window to the absolute foreground
+                
+                var settings = SettingsManager.Load();
+                if (!settings.StartPlayersFullscreen)
+                {
+                    this.Topmost = false; // Release the lock so it acts like a normal window
+                }
+                
+                this.Focus();
+            };
             _settings = SettingsManager.Load();
             _baseUrl = baseUrl;
             _channels = channels;
@@ -109,6 +123,20 @@ namespace FeralCode
         public PlayerWindow(string streamUrl, string movieTitle, string posterUrl, List<double>? commercials)
         {
             InitializeComponent();
+			// --- NEW: Anti-Focus Stealing Fix ---
+            this.Loaded += (s, e) =>
+            {
+                this.Activate();
+                this.Topmost = true; // Rip the window to the absolute foreground
+                
+                var settings = SettingsManager.Load();
+                if (!settings.StartPlayersFullscreen)
+                {
+                    this.Topmost = false; // Release the lock so it acts like a normal window
+                }
+                
+                this.Focus();
+            };
             _settings = SettingsManager.Load();
             _isMovieMode = true;
             _movieStreamUrl = streamUrl;
