@@ -345,19 +345,64 @@ namespace FeralCode
                         return Results.Ok();
                     });
                     
-                    _webHost.MapPost("/api/remote/stop", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.Close()); return Results.Ok(); });
-                    _webHost.MapPost("/api/toggle_pip", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.TogglePiP()); return Results.Ok(); });
-                    _webHost.MapPost("/api/remote/cc", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.ToggleClosedCaptions()); return Results.Ok(); });
-                    _webHost.MapPost("/api/remote/volup", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.VolumeUp()); return Results.Ok(); });
-                    _webHost.MapPost("/api/remote/voldown", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.VolumeDown()); return Results.Ok(); });
-                    _webHost.MapPost("/api/remote/mute", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.ToggleMute()); return Results.Ok(); });
-                    _webHost.MapPost("/api/remote/stats", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.ToggleStats()); return Results.Ok(); });
+                    _webHost.MapPost("/api/remote/stop", () => { 
+                        Application.Current.Dispatcher.Invoke(() => {
+                            var quad = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
+                            if (quad != null) quad.Close();
+                            else ActivePlayerWindow?.Close();
+                        }); 
+                        return Results.Ok(); 
+                    });
 
-                    _webHost.MapPost("/api/remote/fullscreen", () =>
+                    _webHost.MapPost("/api/toggle_pip", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.TogglePiP()); return Results.Ok(); });
+                    
+                    _webHost.MapPost("/api/remote/cc", () => { 
+                        Application.Current.Dispatcher.Invoke(() => {
+                            var quad = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
+                            if (quad != null) quad.ToggleClosedCaptions();
+                            else ActivePlayerWindow?.ToggleClosedCaptions();
+                        }); 
+                        return Results.Ok(); 
+                    });
+
+                    _webHost.MapPost("/api/remote/volup", () => { 
+                        Application.Current.Dispatcher.Invoke(() => {
+                            var quad = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
+                            if (quad != null) quad.VolumeUp();
+                            else ActivePlayerWindow?.VolumeUp();
+                        }); 
+                        return Results.Ok(); 
+                    });
+
+                    _webHost.MapPost("/api/remote/voldown", () => { 
+                        Application.Current.Dispatcher.Invoke(() => {
+                            var quad = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
+                            if (quad != null) quad.VolumeDown();
+                            else ActivePlayerWindow?.VolumeDown();
+                        }); 
+                        return Results.Ok(); 
+                    });
+
+                    _webHost.MapPost("/api/remote/mute", () => { 
+                        Application.Current.Dispatcher.Invoke(() => {
+                            var quad = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
+                            if (quad != null) quad.ToggleMute();
+                            else ActivePlayerWindow?.ToggleMute();
+                        }); 
+                        return Results.Ok(); 
+                    });
+
+                    _webHost.MapPost("/api/remote/stats", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.ToggleStats()); return Results.Ok(); });
+                   _webHost.MapPost("/api/remote/fullscreen", () =>
                     {
                         Application.Current.Dispatcher.Invoke(() =>
                         {
-                            if (ActivePlayerWindow != null)
+                            var quad = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
+                            if (quad != null)
+                            {
+                                quad.ToggleFullscreen();
+                            }
+                            else if (ActivePlayerWindow != null)
                             {
                                 var keyArgs = new System.Windows.Input.KeyEventArgs(
                                     System.Windows.Input.Keyboard.PrimaryDevice, 
@@ -444,7 +489,13 @@ namespace FeralCode
                     {
                         Application.Current.Dispatcher.Invoke(() =>
                         {
-                            if (ActivePlayerWindow != null)
+                            var quad = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
+                            if (quad != null)
+                            {
+                                if (quad.IsActive) Application.Current.MainWindow.Activate();
+                                else quad.Activate();
+                            }
+                            else if (ActivePlayerWindow != null)
                             {
                                 if (ActivePlayerWindow.IsActive) Application.Current.MainWindow.Activate();
                                 else ActivePlayerWindow.Activate();

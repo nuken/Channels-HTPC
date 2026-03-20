@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -72,7 +73,7 @@ namespace FeralCode
             UpdateFocus();
         }
 		
-		// --- NEW: API Gateway for the Mobile Remote ---
+        // --- API Gateway for the Mobile Remote ---
         public void SetActiveQuadrant(int index)
         {
             if (index >= 0 && index < _totalActive)
@@ -118,7 +119,7 @@ namespace FeralCode
             }
         }
         
-        // --- NEW: Double Click to Toggle Fullscreen ---
+        // --- Double Click to Toggle Fullscreen ---
         private void UniformGrid_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (e.ClickCount == 2)
@@ -128,7 +129,7 @@ namespace FeralCode
             }
         }
 
-        // --- NEW: Toggle Fullscreen Logic ---
+        // --- Toggle Fullscreen Logic ---
         public void ToggleFullscreen()
         {
             if (!_isFullscreen)
@@ -148,12 +149,65 @@ namespace FeralCode
                 _isFullscreen = false;
             }
         }
+		
+        // --- Public Methods for Web Server Remote Control & Local Hardware Keys ---
+        public void ToggleMute()
+        {
+            if (_players[_activeIndex] != null)
+            {
+                _players[_activeIndex].Mute = !_players[_activeIndex].Mute;
+            }
+        }
+
+        public void VolumeUp()
+        {
+            if (_players[_activeIndex] != null)
+            {
+                if (_players[_activeIndex].Mute) _players[_activeIndex].Mute = false;
+                int newVol = _players[_activeIndex].Volume + 10;
+                _players[_activeIndex].Volume = newVol > 100 ? 100 : newVol;
+            }
+        }
+
+        public void VolumeDown()
+        {
+            if (_players[_activeIndex] != null)
+            {
+                int newVol = _players[_activeIndex].Volume - 10;
+                _players[_activeIndex].Volume = newVol < 0 ? 0 : newVol;
+            }
+        }
+
+        public void ToggleClosedCaptions()
+        {
+            if (_players[_activeIndex] == null) return;
+
+            if (_players[_activeIndex].Spu == -1)
+            {
+                var spus = _players[_activeIndex].SpuDescription;
+                if (spus != null)
+                {
+                    foreach (var track in spus)
+                    {
+                        if (track.Id > -1)
+                        {
+                            _players[_activeIndex].SetSpu(track.Id);
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                _players[_activeIndex].SetSpu(-1);
+            }
+        }
 
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
-                // NEW: If they hit escape while fullscreen, just drop to a window instead of instantly killing the streams!
+                // If they hit escape while fullscreen, just drop to a window instead of instantly killing the streams!
                 if (_isFullscreen) 
                 {
                     ToggleFullscreen();
@@ -166,7 +220,7 @@ namespace FeralCode
                 return;
             }
             
-            // --- NEW: Safely Trap 'BrowserHome' so it doesn't background-navigate! ---
+            // --- Safely Trap 'BrowserHome' so it doesn't background-navigate! ---
             if (e.Key == Key.BrowserHome)
             {
                 if (Application.Current.MainWindow is MainWindow main && main.MainFrame.Content is Page page)
@@ -179,7 +233,7 @@ namespace FeralCode
                 return;
             }
 
-            // --- NEW: Hardware Hotkeys ---
+            // --- Hardware Hotkeys ---
             if (e.Key == Key.F || e.Key == Key.F11)
             {
                 ToggleFullscreen();
@@ -225,33 +279,22 @@ namespace FeralCode
                 else if (_activeIndex == 1 && _totalActive > 3) _activeIndex = 3;
             }
             
+            // --- DRY Refactor: Using the public methods for volume control ---
             if (e.Key == Key.VolumeMute)
             {
-                if (_players[_activeIndex] != null)
-                {
-                    _players[_activeIndex].Mute = !_players[_activeIndex].Mute;
-                }
+                ToggleMute();
                 e.Handled = true;
                 return;
             }
             else if (e.Key == Key.VolumeUp)
             {
-                if (_players[_activeIndex] != null)
-                {
-                    if (_players[_activeIndex].Mute) _players[_activeIndex].Mute = false;
-                    int newVol = _players[_activeIndex].Volume + 10;
-                    _players[_activeIndex].Volume = newVol > 100 ? 100 : newVol;
-                }
+                VolumeUp();
                 e.Handled = true;
                 return;
             }
             else if (e.Key == Key.VolumeDown)
             {
-                if (_players[_activeIndex] != null)
-                {
-                    int newVol = _players[_activeIndex].Volume - 10;
-                    _players[_activeIndex].Volume = newVol < 0 ? 0 : newVol;
-                }
+                VolumeDown();
                 e.Handled = true;
                 return;
             }
@@ -275,7 +318,7 @@ namespace FeralCode
             }
             base.OnClosed(e);
             
-            // --- NEW: Force the main window to regain focus immediately so the D-Pad stays alive ---
+            // Force the main window to regain focus immediately so the D-Pad stays alive
             Application.Current.MainWindow?.Activate();
         }
     }
