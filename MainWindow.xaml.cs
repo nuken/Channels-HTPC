@@ -79,25 +79,51 @@ namespace FeralCode
             StartWebServer();
             MainFrame.Navigate(new StartPage());
 
-            // --- NEW: Global D-Pad Failsafe ---
             this.PreviewKeyDown += MainWindow_PreviewKeyDown;
+
+            // --- NEW FIX: Auto-heal focus whenever a player closes and the main app regains control ---
+            this.Activated += (s, e) =>
+            {
+                Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    if (System.Windows.Input.Keyboard.FocusedElement == null || 
+                        System.Windows.Input.Keyboard.FocusedElement is Window || 
+                        System.Windows.Input.Keyboard.FocusedElement is Frame)
+                    {
+                        if (MainFrame.Content is UIElement page)
+                        {
+                            page.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First));
+                        }
+                    }
+                }, System.Windows.Threading.DispatcherPriority.Input);
+            };
         }
 
         // --- NEW: The Void Recovery System ---
         private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            // If focus is ever completely lost into the void, pressing an arrow key 
-            // will instantly snap it back into the active page so the remote never dies.
-            bool isArrowKey = e.Key == System.Windows.Input.Key.Up || e.Key == System.Windows.Input.Key.Down || 
-                              e.Key == System.Windows.Input.Key.Left || e.Key == System.Windows.Input.Key.Right;
+            bool isNavKey = e.Key == System.Windows.Input.Key.Up || e.Key == System.Windows.Input.Key.Down || 
+                            e.Key == System.Windows.Input.Key.Left || e.Key == System.Windows.Input.Key.Right ||
+                            e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack;
 
-            if (isArrowKey && (System.Windows.Input.Keyboard.FocusedElement == null || 
-                               System.Windows.Input.Keyboard.FocusedElement is Window || 
-                               System.Windows.Input.Keyboard.FocusedElement is Frame))
+            if (isNavKey && (System.Windows.Input.Keyboard.FocusedElement == null || 
+                             System.Windows.Input.Keyboard.FocusedElement is Window || 
+                             System.Windows.Input.Keyboard.FocusedElement is Frame))
             {
                 if (MainFrame.Content is UIElement page)
                 {
                     page.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First));
+                    
+                    // If the key was Back, inject it manually into the Page so it triggers your custom back logic
+                    if (e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)
+                    {
+                        var keyArgs = new System.Windows.Input.KeyEventArgs(
+                            System.Windows.Input.Keyboard.PrimaryDevice, 
+                            System.Windows.PresentationSource.FromVisual(this) ?? new System.Windows.Interop.HwndSource(0, 0, 0, 0, 0, "", IntPtr.Zero), 
+                            0, e.Key) { RoutedEvent = System.Windows.Input.Keyboard.PreviewKeyDownEvent };
+                        page.RaiseEvent(keyArgs);
+                        e.Handled = true; // Stop native WPF Frame from breaking the page state
+                    }
                 }
             }
         }

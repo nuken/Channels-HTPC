@@ -33,7 +33,7 @@ namespace FeralCode
             
             var cleanChannels = rawChannels.Where(c => !string.IsNullOrWhiteSpace(c.Name) && !string.IsNullOrWhiteSpace(c.Number)).ToList();
 
-            // --- NEW: Fetch 1 hour of guide data to get the currently airing shows ---
+            // --- Fetch 1 hour of guide data to get the currently airing shows ---
             try
             {
                 // We pass '1' to only grab a tiny, fast slice of the timeline
@@ -128,7 +128,7 @@ namespace FeralCode
 
             ChannelsListControl.ItemsSource = filtered.ToList();
 
-            // NEW: Auto-focus the first channel so the D-Pad is instantly ready!
+            // Auto-focus the first channel so the D-Pad is instantly ready!
             _ = Dispatcher.BeginInvoke(new Action(() =>
             {
                 var request = new TraversalRequest(FocusNavigationDirection.First);
@@ -170,10 +170,20 @@ namespace FeralCode
         private void Launch_Click(object sender, RoutedEventArgs e)
         {
             var quadWindow = new QuadPlayerWindow(_baseUrl, _selectedChannels);
+            
+            // --- NEW FIX: Precision Focus Snap for the Quad Window! ---
+            quadWindow.Closed += (s, args) => 
+            {
+                Application.Current.Dispatcher.InvokeAsync(() => 
+                {
+                    LaunchButton.Focus(); 
+                }, System.Windows.Threading.DispatcherPriority.Input);
+            };
+
             quadWindow.Show();
         }
 
-        // --- NEW: SAFE NAVIGATION ---
+        // --- SAFE NAVIGATION ---
         private void HomeButton_Click(object sender, RoutedEventArgs e)
         {
             if (NavigationService != null && NavigationService.CanGoBack)
@@ -188,7 +198,7 @@ namespace FeralCode
 
         private void Page_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            // --- NEW: Safely close the dropdown if it's open, instead of leaving the page! ---
+            // Safely close the dropdown if it's open, instead of leaving the page!
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
                 if (CollectionComboBox.IsDropDownOpen)

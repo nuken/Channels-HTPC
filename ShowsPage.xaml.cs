@@ -316,11 +316,15 @@ namespace FeralCode
                     if (mainWin.ActivePlayerWindow != null) mainWin.ActivePlayerWindow.Close();
 
                     mainWin.ActivePlayerWindow = new PlayerWindow(streamUrl, displayTitle, ep.ImageUrl, ep.Commercials);
-                    mainWin.ActivePlayerWindow.Closed += (s, args) => mainWin.ActivePlayerWindow = null;
+                    
+                    // --- NEW FIX: We moved the focus snap INSIDE the Closed event! ---
+                    mainWin.ActivePlayerWindow.Closed += (s, args) => 
+                    {
+                        mainWin.ActivePlayerWindow = null;
+                        Application.Current.Dispatcher.InvokeAsync(() => btn.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+                    };
+                    
                     mainWin.ActivePlayerWindow.Show();
-
-                    // --- NEW FIX: Snap focus back to the episode button! ---
-                    btn.Focus();
                 }
             }
         }
