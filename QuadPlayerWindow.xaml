@@ -5,8 +5,8 @@
         Title="Multiview" Background="Black" WindowStyle="None" WindowState="Maximized"
         PreviewKeyDown="Window_PreviewKeyDown">
 
-    <UniformGrid Rows="2" Columns="2" Background="Black" MouseLeftButtonDown="UniformGrid_MouseLeftButtonDown">
-        <Border x:Name="Border0" BorderThickness="4" BorderBrush="Transparent">
+    <UniformGrid Rows="2" Columns="2">        
+	    <Border x:Name="Border0" BorderThickness="4" BorderBrush="Transparent">
             <vlc:VideoView x:Name="View0" />
         </Border>
         <Border x:Name="Border1" BorderThickness="4" BorderBrush="Transparent">

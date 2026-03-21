@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using LibVLCSharp.Shared;
 
 namespace FeralCode
@@ -18,32 +19,45 @@ namespace FeralCode
         private int _activeIndex = 0;
         private int _totalActive = 0;
         
-        // Tracking Fullscreen state
         private bool _isFullscreen = true;
+        private DispatcherTimer _audioTimer;
+        
+        // --- NEW: The Glass Overlay Window ---
+        private Window? _glassOverlay;
 
         public QuadPlayerWindow(string baseUrl, List<Channel> channels)
         {
             InitializeComponent();
-			// --- NEW: Anti-Focus Stealing Fix & Settings Check ---
+
             this.Loaded += (s, e) =>
             {
                 this.Activate();
-                this.Topmost = true; // Rip the window to the absolute foreground
+                this.Topmost = true; 
 
                 var settings = SettingsManager.Load();
                 if (!settings.StartPlayersFullscreen)
                 {
-                    this.Topmost = false; // Release the lock
-                    if (_isFullscreen) ToggleFullscreen(); // Safely drop to windowed mode
+                    this.Topmost = false; 
+                    if (_isFullscreen) ToggleFullscreen(); 
                 }
                 
+                SetupGlassOverlay();
                 this.Focus();
             };
+            
             _libVLC = MainWindow.SharedLibVLC;
             _totalActive = channels.Count;
 
             _views = new[] { View0, View1, View2, View3 };
             _borders = new[] { Border0, Border1, Border2, Border3 };
+
+            // Initialize the 250ms debouncer to protect the audio pipeline!
+            _audioTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            _audioTimer.Tick += (s, e) => 
+            {
+                _audioTimer.Stop();
+                ApplyAudioFocus();
+            };
 
             for (int i = 0; i < 4; i++)
             {
@@ -52,11 +66,6 @@ namespace FeralCode
                     _players[i] = new LibVLCSharp.Shared.MediaPlayer(_libVLC);
                     _views[i].MediaPlayer = _players[i];
 
-                    // Force Windows to leave the app's master volume alone!
-                    _players[i].Mute = false;
-                    _players[i].Volume = 100;
-
-                    // --- NEW: Smart Audio Transcoding Logic for Multiview ---
                     string audioCodec = "copy";
                     if (double.TryParse(channels[i].Number, out double chNum) && chNum >= 100 && chNum < 200)
                     {
@@ -71,14 +80,13 @@ namespace FeralCode
                     media.AddOption(":http-reconnect");
                     media.AddOption(":avcodec-hw=none");
                     
-                    // Wait for the stream to connect and parse its tracks, then apply focus
                     _players[i].Playing += async (sender, args) => 
                     {
-                        await System.Threading.Tasks.Task.Delay(1500); 
-                        Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            UpdateFocus();
-                        });
+                        await System.Threading.Tasks.Task.Delay(1000); 
+                        Application.Current.Dispatcher.Invoke(() => ApplyAudioFocus());
+                        
+                        await System.Threading.Tasks.Task.Delay(2500); 
+                        Application.Current.Dispatcher.Invoke(() => ApplyAudioFocus());
                     };
                     
                     using (media)
@@ -92,20 +100,99 @@ namespace FeralCode
                 }
             }
 
-            UpdateFocus();
+            DebounceAudioSwitch();
         }
-		
-        // --- API Gateway for the Mobile Remote ---
+
+        // --- THE MOUSE FIX: Floating Glass Overlay ---
+        private void SetupGlassOverlay()
+        {
+            // Create a completely transparent window that floats above VLC
+            _glassOverlay = new Window
+            {
+                WindowStyle = WindowStyle.None,
+                AllowsTransparency = true,
+                Background = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)), // 1% opacity black catches clicks!
+                ShowInTaskbar = false,
+                ShowActivated = false,
+                Owner = this // This links it to the main window so they minimize/maximize together
+            };
+
+            _glassOverlay.PreviewMouseLeftButtonDown += GlassOverlay_PreviewMouseLeftButtonDown;
+            
+            // Pass any stray keyboard presses through to our main logic
+            _glassOverlay.PreviewKeyDown += Window_PreviewKeyDown;
+
+            // Keep the glass exactly matched to the video player size
+            this.LocationChanged += (s, e) => SyncOverlay();
+            this.SizeChanged += (s, e) => SyncOverlay();
+            
+            _glassOverlay.Show();
+            SyncOverlay();
+        }
+
+        private void SyncOverlay()
+        {
+            if (_glassOverlay != null)
+            {
+                _glassOverlay.Left = this.Left;
+                _glassOverlay.Top = this.Top;
+                _glassOverlay.Width = this.ActualWidth;
+                _glassOverlay.Height = this.ActualHeight;
+            }
+        }
+
+        private void GlassOverlay_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2)
+            {
+                ToggleFullscreen();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.ClickCount == 1)
+            {
+                Point pos = e.GetPosition(_glassOverlay);
+                
+                int col = pos.X < (_glassOverlay.ActualWidth / 2) ? 0 : 1;
+                int row = pos.Y < (_glassOverlay.ActualHeight / 2) ? 0 : 1;
+                int index = (row * 2) + col;
+
+                if (index < _totalActive && _activeIndex != index)
+                {
+                    _activeIndex = index;
+                    DebounceAudioSwitch();
+                }
+                e.Handled = true;
+            }
+        }
+
         public void SetActiveQuadrant(int index)
         {
             if (index >= 0 && index < _totalActive)
             {
                 _activeIndex = index;
-                UpdateFocus();
+                DebounceAudioSwitch();
             }
         }
 
-        private void UpdateFocus()
+        // 1. Move the visual border INSTANTLY
+        private void DebounceAudioSwitch()
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                _borders[i].BorderBrush = (i == _activeIndex) 
+                    ? (Brush)Application.Current.FindResource("StatusConnecting") 
+                    : Brushes.Transparent;
+            }
+            
+            // Start the 250ms countdown to switch the actual audio tracks safely
+            _audioTimer.Stop();
+            _audioTimer.Start();
+        }
+
+        // --- THE AUDIO FIX: Safe Hardware Track Switching ---
+        private void ApplyAudioFocus()
         {
             for (int i = 0; i < _totalActive; i++)
             {
@@ -113,13 +200,16 @@ namespace FeralCode
                 {
                     if (i == _activeIndex)
                     {
-                        // UNMUTE: Find the active audio track and turn the decoder ON
+                        // Jiggle the mute to ensure Windows recognizes it
+                        _players[i].Mute = true; 
+                        _players[i].Mute = false;
+
                         var tracks = _players[i].AudioTrackDescription;
                         if (tracks != null)
                         {
                             foreach (var track in tracks)
                             {
-                                if (track.Id != -1) // -1 is the "Disabled" track
+                                if (track.Id != -1) 
                                 {
                                     _players[i].SetAudioTrack(track.Id);
                                     break;
@@ -129,29 +219,13 @@ namespace FeralCode
                     }
                     else
                     {
-                        // MUTE: Force the decoder to turn the audio track OFF (-1)
+                        // Safely kill the background decoders to prevent audio bleed
                         _players[i].SetAudioTrack(-1);
                     }
                 }
-                
-                // Highlight the active quadrant
-                _borders[i].BorderBrush = (i == _activeIndex) 
-                    ? (Brush)Application.Current.FindResource("StatusConnecting") 
-                    : Brushes.Transparent;
-            }
-        }
-        
-        // --- Double Click to Toggle Fullscreen ---
-        private void UniformGrid_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ClickCount == 2)
-            {
-                ToggleFullscreen();
-                e.Handled = true;
             }
         }
 
-        // --- Toggle Fullscreen Logic ---
         public void ToggleFullscreen()
         {
             if (!_isFullscreen)
@@ -171,8 +245,8 @@ namespace FeralCode
                 _isFullscreen = false;
             }
         }
-		
-        // --- Public Methods for Web Server Remote Control & Local Hardware Keys ---
+
+        // --- API Gateway Methods ---
         public void ToggleMute()
         {
             if (_players[_activeIndex] != null)
@@ -229,20 +303,13 @@ namespace FeralCode
         {
             if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.BrowserBack)
             {
-                // If they hit escape while fullscreen, just drop to a window instead of instantly killing the streams!
-                if (_isFullscreen) 
-                {
-                    ToggleFullscreen();
-                }
-                else 
-                {
-                    this.Close();
-                }
+                if (_isFullscreen) ToggleFullscreen();
+                else this.Close();
+                
                 e.Handled = true;
                 return;
             }
             
-            // --- Safely Trap 'BrowserHome' so it doesn't background-navigate! ---
             if (e.Key == Key.BrowserHome)
             {
                 if (Application.Current.MainWindow is MainWindow main && main.MainFrame.Content is Page page)
@@ -255,7 +322,6 @@ namespace FeralCode
                 return;
             }
 
-            // --- Hardware Hotkeys ---
             if (e.Key == Key.F || e.Key == Key.F11)
             {
                 ToggleFullscreen();
@@ -277,7 +343,6 @@ namespace FeralCode
                 return;
             }
 
-            // D-Pad Navigation between the quadrants
             int previousIndex = _activeIndex;
 
             if (e.Key == Key.Left)
@@ -301,35 +366,27 @@ namespace FeralCode
                 else if (_activeIndex == 1 && _totalActive > 3) _activeIndex = 3;
             }
             
-            // --- DRY Refactor: Using the public methods for volume control ---
-            if (e.Key == Key.VolumeMute)
-            {
-                ToggleMute();
-                e.Handled = true;
-                return;
-            }
-            else if (e.Key == Key.VolumeUp)
-            {
-                VolumeUp();
-                e.Handled = true;
-                return;
-            }
-            else if (e.Key == Key.VolumeDown)
-            {
-                VolumeDown();
-                e.Handled = true;
-                return;
-            }
+            if (e.Key == Key.VolumeMute) { ToggleMute(); e.Handled = true; return; }
+            else if (e.Key == Key.VolumeUp) { VolumeUp(); e.Handled = true; return; }
+            else if (e.Key == Key.VolumeDown) { VolumeDown(); e.Handled = true; return; }
 
             if (previousIndex != _activeIndex)
             {
-                UpdateFocus();
+                DebounceAudioSwitch();
                 e.Handled = true;
             }
         }
 
         protected override void OnClosed(EventArgs e)
         {
+            _audioTimer?.Stop();
+
+            // Destroy the glass overlay safely
+            if (_glassOverlay != null)
+            {
+                _glassOverlay.Close();
+            }
+
             for (int i = 0; i < 4; i++)
             {
                 if (_players[i] != null)
@@ -339,8 +396,7 @@ namespace FeralCode
                 }
             }
             base.OnClosed(e);
-            
-            // Force the main window to regain focus immediately so the D-Pad stays alive
+            Application.Current.MainWindow?.Show();
             Application.Current.MainWindow?.Activate();
         }
     }
