@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using System.Threading.Tasks;
 using LibVLCSharp.Shared;
 using System.Windows.Controls;
+using System.Runtime.InteropServices;
 
 namespace FeralCode
 {
@@ -46,6 +47,29 @@ namespace FeralCode
         private bool _previousTopmost;
         private bool _isFullscreen = false;
         private bool _isWaitingToBuffer = false;
+		
+		[DllImport("user32.dll")]
+private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+
+private const byte VK_LWIN = 0x5B; // Left Windows Key
+private const byte VK_K = 0x4B;    // 'K' Key
+private const uint KEYEVENTF_KEYUP = 0x0002;
+
+private void CastButton_Click(object sender, RoutedEventArgs e)
+{
+    // Simulate Win + K
+    // 1. Press Windows Key
+    keybd_event(VK_LWIN, 0, 0, 0);
+    // 2. Press K
+    keybd_event(VK_K, 0, 0, 0);
+    // 3. Release K
+    keybd_event(VK_K, 0, KEYEVENTF_KEYUP, 0);
+    // 4. Release Windows Key
+    keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, 0);
+    
+    // Ensure the UI overlay stays visible while the user interacts with the menu
+    Overlay_MouseMove(null!, null!);
+}
 
         // --- ORIGINAL CONSTRUCTOR: Live TV Mode ---
         public PlayerWindow(string baseUrl, List<Channel> channels, int startIndex)

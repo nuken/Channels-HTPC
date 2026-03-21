@@ -24,23 +24,36 @@ namespace FeralCode
         
         private WebApplication? _webHost;
 
-        // --- NEW: Upgraded Property to automatically force window activation ---
-        private PlayerWindow? _activePlayerWindow;
-        public PlayerWindow? ActivePlayerWindow 
-        { 
-            get => _activePlayerWindow;
-            set
+        // --- NEW: Upgraded Property to automatically hide the window and force activation ---
+private PlayerWindow? _activePlayerWindow;
+public PlayerWindow? ActivePlayerWindow 
+{ 
+    get => _activePlayerWindow;
+    set
+    {
+        _activePlayerWindow = value;
+        if (_activePlayerWindow != null)
+        {
+            // 1. Hide the MainWindow immediately when a player is spawned
+            this.Hide(); 
+
+            _activePlayerWindow.Closed += (s, e) => 
             {
-                _activePlayerWindow = value;
-                if (_activePlayerWindow != null)
+                // 2. Use InvokeAsync so we don't flash the main window if the user 
+                // is just using the remote to instantly swap from one channel to another.
+                Application.Current.Dispatcher.InvokeAsync(() => 
                 {
-                    _activePlayerWindow.Closed += (s, e) => 
+                    // Only show the main window if no other players were opened in the meantime
+                    if (ActivePlayerWindow == null)
                     {
+                        this.Show();     // Un-hide the MainWindow
                         this.Activate(); // Force OS to give MainWindow control again
-                    };
-                }
-            }
+                    }
+                }, System.Windows.Threading.DispatcherPriority.Normal);
+            };
         }
+    }
+}
 
         [DllImport("user32.dll")]
         private static extern bool SetCursorPos(int X, int Y);

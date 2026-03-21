@@ -5,18 +5,89 @@
         Title="Multiview" Background="Black" WindowStyle="None" WindowState="Maximized"
         PreviewKeyDown="Window_PreviewKeyDown">
 
-    <UniformGrid Rows="2" Columns="2">        
-	    <Border x:Name="Border0" BorderThickness="4" BorderBrush="Transparent">
-            <vlc:VideoView x:Name="View0" />
-        </Border>
-        <Border x:Name="Border1" BorderThickness="4" BorderBrush="Transparent">
-            <vlc:VideoView x:Name="View1" />
-        </Border>
-        <Border x:Name="Border2" BorderThickness="4" BorderBrush="Transparent">
-            <vlc:VideoView x:Name="View2" />
-        </Border>
-        <Border x:Name="Border3" BorderThickness="4" BorderBrush="Transparent">
-            <vlc:VideoView x:Name="View3" />
-        </Border>
-    </UniformGrid>
+    <Grid x:Name="LayoutRoot">
+        <UniformGrid Rows="2" Columns="2">        
+            <Border x:Name="Border0" BorderThickness="4" BorderBrush="Transparent">
+                <vlc:VideoView x:Name="View0" />
+            </Border>
+            <Border x:Name="Border1" BorderThickness="4" BorderBrush="Transparent">
+                <vlc:VideoView x:Name="View1" />
+            </Border>
+            <Border x:Name="Border2" BorderThickness="4" BorderBrush="Transparent">
+                <vlc:VideoView x:Name="View2" />
+            </Border>
+            <Border x:Name="Border3" BorderThickness="4" BorderBrush="Transparent">
+                <vlc:VideoView x:Name="View3" />
+            </Border>
+        </UniformGrid>
+
+        <Grid x:Name="OverlayGrid" Background="#01000000" 
+              MouseLeftButtonDown="Overlay_MouseLeftButtonDown" 
+              MouseMove="Overlay_MouseMove">
+            
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Background="#88000000" Visibility="{Binding Visibility, ElementName=ControlBar}" Grid.RowSpan="2" IsHitTestVisible="False"/>
+
+            <Border x:Name="ControlBar" Grid.Row="1" Padding="20" Visibility="Collapsed">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#00000000" Offset="0.0" />
+                        <GradientStop Color="#D9000000" Offset="0.3" />
+                        <GradientStop Color="#FF000000" Offset="1.0" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="QUAD VIEW" Foreground="White" FontSize="20" FontWeight="Bold" Margin="0,0,20,0">
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="Black" BlurRadius="10" ShadowDepth="0" Opacity="0.8"/>
+                            </TextBlock.Effect>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Button Content="&#x1F50A; Mute" FontSize="16" Foreground="White" Background="Transparent" BorderThickness="0" Margin="10,0" Cursor="Hand" Click="Mute_Click">
+                            <Button.Effect>
+                                <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="0"/>
+                            </Button.Effect>
+                        </Button>
+                        <Button x:Name="BtnCC" Content="CC" FontSize="18" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Margin="10,0" Cursor="Hand" Click="BtnCC_Click" ToolTip="Toggle Closed Captions (C)">
+                            <Button.Effect>
+                                <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="0"/>
+                            </Button.Effect>
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button Content="&#xE72D;" ToolTip="Cast to TV (Win+K)" FontFamily="Segoe MDL2 Assets" Foreground="White" Background="Transparent" BorderThickness="0" FontSize="22" Margin="15,0,0,0" Cursor="Hand" Click="CastButton_Click">
+                            <Button.Effect>
+                                <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="0"/>
+                            </Button.Effect>
+                        </Button>
+                        
+                        <Button Content="&#x26F6;" ToolTip="Toggle Fullscreen" Foreground="White" Background="Transparent" BorderThickness="0" FontSize="22" Margin="25,0,0,0" Cursor="Hand" Click="ToggleFullscreen_Click">
+                            <Button.Effect>
+                                <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="0"/>
+                            </Button.Effect>
+                        </Button>
+                        <Button Content="&#x274C;" ToolTip="Close Quad View" Foreground="#FF4444" Background="Transparent" BorderThickness="0" FontSize="18" Margin="25,0,0,0" Cursor="Hand" Click="Close_Click">
+                            <Button.Effect>
+                                <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="0"/>
+                            </Button.Effect>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
 </Window>

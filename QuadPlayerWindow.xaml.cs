@@ -7,6 +7,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using LibVLCSharp.Shared;
+using System.Runtime.InteropServices;
 
 namespace FeralCode
 {
@@ -21,9 +22,15 @@ namespace FeralCode
         
         private bool _isFullscreen = true;
         private DispatcherTimer _audioTimer;
-        
-        // --- NEW: The Glass Overlay Window ---
-        private Window? _glassOverlay;
+        private DispatcherTimer _uiTimer;
+        private DateTime _lastMouseMove = DateTime.MinValue;
+		private Window? _glassOverlay;
+
+        [DllImport("user32.dll")]
+        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+        private const byte VK_LWIN = 0x5B;
+        private const byte VK_K = 0x4B;
+        private const uint KEYEVENTF_KEYUP = 0x0002;
 
         public QuadPlayerWindow(string baseUrl, List<Channel> channels)
         {
@@ -41,7 +48,9 @@ namespace FeralCode
                     if (_isFullscreen) ToggleFullscreen(); 
                 }
                 
-                SetupGlassOverlay();
+                // --- FIX: Build the overlay AFTER the main window is fully loaded on screen ---
+                SetupGlassOverlay(); 
+                
                 this.Focus();
             };
             
@@ -111,51 +120,89 @@ namespace FeralCode
             }
 
             DebounceAudioSwitch();
+            // REMOVED SetupGlassOverlay() from here!
+
+            // Setup Auto-Hiding UI Timer
+            _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            _uiTimer.Tick += UiTimer_Tick;
+            _uiTimer.Start();
         }
 
-        // --- THE MOUSE FIX: Floating Glass Overlay ---
-        private void SetupGlassOverlay()
+        // --- NEW: Clean Native WPF Overlay Handlers ---
+        private void Overlay_MouseMove(object sender, MouseEventArgs e)
         {
-            // Create a completely transparent window that floats above VLC
-            _glassOverlay = new Window
+            // Prevent micro-movements from spamming the UI
+            if ((DateTime.Now - _lastMouseMove).TotalMilliseconds < 100) return;
+            _lastMouseMove = DateTime.Now;
+
+            if (ControlBar.Visibility != Visibility.Visible)
             {
-                WindowStyle = WindowStyle.None,
-                AllowsTransparency = true,
-                Background = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)), // 1% opacity black catches clicks!
-                ShowInTaskbar = false,
-                ShowActivated = false,
-                Owner = this // This links it to the main window so they minimize/maximize together
-            };
-
-            _glassOverlay.PreviewMouseLeftButtonDown += GlassOverlay_PreviewMouseLeftButtonDown;
-            
-            // Pass any stray keyboard presses through to our main logic
-            _glassOverlay.PreviewKeyDown += Window_PreviewKeyDown;
-
-            // Keep the glass exactly matched to the video player size
-            this.LocationChanged += (s, e) => SyncOverlay();
-            this.SizeChanged += (s, e) => SyncOverlay();
-            
-            _glassOverlay.Show();
-            SyncOverlay();
-        }
-
-        private void SyncOverlay()
-        {
-            if (_glassOverlay != null)
-            {
-                _glassOverlay.Left = this.Left;
-                _glassOverlay.Top = this.Top;
-                _glassOverlay.Width = this.ActualWidth;
-                _glassOverlay.Height = this.ActualHeight;
+                ControlBar.Visibility = Visibility.Visible;
+                Mouse.OverrideCursor = null;
             }
+
+            _uiTimer.Stop();
+            _uiTimer.Start();
+        }
+		
+		private void SetupGlassOverlay()
+{
+    // 1. Detach the XAML overlay from the main window to bypass the Airspace issue
+    LayoutRoot.Children.Remove(OverlayGrid);
+
+    // 2. Wrap it in a completely transparent, floating hardware window
+    _glassOverlay = new Window
+    {
+        WindowStyle = WindowStyle.None,
+        AllowsTransparency = true,
+        Background = Brushes.Transparent,
+        ShowInTaskbar = false,
+        ShowActivated = false,
+        Owner = this,
+        Content = OverlayGrid // Attach the XAML design here!
+    };
+
+    // --- MISSING LINE ADDED HERE ---
+    // Pass any stray keyboard presses through to our main logic
+    _glassOverlay.PreviewKeyDown += Window_PreviewKeyDown;
+
+    // 3. Keep the glass exactly matched to the video player size
+    this.LocationChanged += (s, e) => SyncOverlay();
+    this.SizeChanged += (s, e) => SyncOverlay();
+    this.StateChanged += (s, e) => SyncOverlay();
+
+    _glassOverlay.Show();
+    SyncOverlay();
+}
+
+private void SyncOverlay()
+{
+    if (_glassOverlay != null)
+    {
+        if (this.WindowState == WindowState.Maximized)
+        {
+            _glassOverlay.WindowState = WindowState.Maximized;
+        }
+        else
+        {
+            _glassOverlay.WindowState = WindowState.Normal;
+            _glassOverlay.Left = this.Left;
+            _glassOverlay.Top = this.Top;
+            _glassOverlay.Width = this.ActualWidth;
+            _glassOverlay.Height = this.ActualHeight;
+        }
+    }
+}
+
+        private void UiTimer_Tick(object? sender, EventArgs e)
+        {
+            ControlBar.Visibility = Visibility.Collapsed;
+            Mouse.OverrideCursor = Cursors.None;
+            _uiTimer.Stop();
         }
 
-        private void GlassOverlay_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        private void Overlay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            // --- NEW: Safely cast the sender so the compiler knows it is never null ---
-            if (sender is not Window overlay) return;
-
             if (e.ClickCount == 2)
             {
                 ToggleFullscreen();
@@ -163,9 +210,8 @@ namespace FeralCode
                 return;
             }
 
-            if (e.ClickCount == 1)
+            if (sender is FrameworkElement overlay)
             {
-                // We use our safely casted 'overlay' variable here instead of '_glassOverlay'
                 Point pos = e.GetPosition(overlay);
                 
                 int col = pos.X < (overlay.ActualWidth / 2) ? 0 : 1;
@@ -177,9 +223,27 @@ namespace FeralCode
                     _activeIndex = index;
                     DebounceAudioSwitch();
                 }
-                e.Handled = true;
+                
+                // Ensure UI stays awake after clicking
+                Overlay_MouseMove(overlay, e); 
             }
         }
+
+        // --- Control Bar Click Handlers ---
+        private void CastButton_Click(object sender, RoutedEventArgs e)
+        {
+            keybd_event(VK_LWIN, 0, 0, 0);
+            keybd_event(VK_K, 0, 0, 0);
+            keybd_event(VK_K, 0, KEYEVENTF_KEYUP, 0);
+            keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, 0);
+            Overlay_MouseMove(null!, null!);
+        }
+
+        private void ToggleFullscreen_Click(object sender, RoutedEventArgs e) => ToggleFullscreen();
+        private void Close_Click(object sender, RoutedEventArgs e) => this.Close();
+        private void BtnCC_Click(object sender, RoutedEventArgs e) => ToggleClosedCaptions();
+        private void Mute_Click(object sender, RoutedEventArgs e) => ToggleMute();
+
 
         public void SetActiveQuadrant(int index)
         {
@@ -392,26 +456,28 @@ namespace FeralCode
         }
 
         protected override void OnClosed(EventArgs e)
+{
+    _audioTimer?.Stop();
+    _uiTimer?.Stop();
+
+    // Destroy the overlay window
+    if (_glassOverlay != null)
+    {
+        _glassOverlay.Close();
+    }
+
+    for (int i = 0; i < 4; i++)
+    {
+        if (_players[i] != null)
         {
-            _audioTimer?.Stop();
-
-            // Destroy the glass overlay safely
-            if (_glassOverlay != null)
-            {
-                _glassOverlay.Close();
-            }
-
-            for (int i = 0; i < 4; i++)
-            {
-                if (_players[i] != null)
-                {
-                    if (_players[i].IsPlaying) _players[i].Stop();
-                    _players[i].Dispose();
-                }
-            }
-            base.OnClosed(e);
-            Application.Current.MainWindow?.Show();
-            Application.Current.MainWindow?.Activate();
+            if (_players[i].IsPlaying) _players[i].Stop();
+            _players[i].Dispose();
         }
+    }
+    
+    base.OnClosed(e);
+    Application.Current.MainWindow?.Show();
+    Application.Current.MainWindow?.Activate();
+}
     }
 }

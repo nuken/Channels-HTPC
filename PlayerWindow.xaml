@@ -104,7 +104,7 @@
                             <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                 <TextBlock Text="&#x1F50A;" Foreground="White" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0"/>
                                 <Slider x:Name="VolumeSlider" Width="100" Minimum="0" Maximum="100" Value="100" VerticalAlignment="Center" ValueChanged="VolumeSlider_ValueChanged"/>
-                                
+                                <Button Content="&#xE72D;" ToolTip="Cast to TV (Win+K)" FontFamily="Segoe MDL2 Assets" Foreground="White" Background="Transparent" BorderThickness="0" FontSize="18" Margin="20,0,0,0" Cursor="Hand" Click="CastButton_Click"/>
                                 <StackPanel Margin="20,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Right">
                                     <Button Content="&#x25B2; CH UP" Foreground="#888888" FontSize="11" FontWeight="Bold" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="ChUp_Click"/>
                                     <Button Content="&#x25BC; CH DN" Foreground="#888888" FontSize="11" FontWeight="Bold" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="ChDn_Click" Margin="0,5,0,0"/>
