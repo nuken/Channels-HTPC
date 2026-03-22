@@ -197,7 +197,10 @@
 			
             <TextBlock Text="Appearance" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,30,0,15"/>
             <CheckBox x:Name="LightModeCheckBox" Content="Enable Light Theme (Global)" Style="{StaticResource BigCheckBox}"/>			
-			<CheckBox x:Name="ShowExtendedMetadata" Content="Enhanced Metadata" Style="{StaticResource BigCheckBox}"/>
+            <CheckBox x:Name="ShowExtendedMetadata" Content="Enhanced Metadata" Style="{StaticResource BigCheckBox}"/>
+
+            <TextBlock Text="Advanced / Developer" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,30,0,15"/>
+            <CheckBox x:Name="EnableLoggingCheckBox" Content="Enable Debug Logging (Saves feral_debug.log to Desktop)" Style="{StaticResource BigCheckBox}"/>
 
             <TextBlock Text="External Streaming Apps" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,40,0,15"/>
             

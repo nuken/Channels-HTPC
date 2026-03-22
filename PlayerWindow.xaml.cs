@@ -14,7 +14,7 @@ namespace FeralCode
     public partial class PlayerWindow : Window
     {
         // --- NEW: Toggle this to false to disable logging! ---
-        private bool _enableLogging = true;
+        private bool _enableLogging;
 
         private MediaPlayer _mediaPlayer;
         private string _baseUrl = ""; 
@@ -197,6 +197,7 @@ namespace FeralCode
                 this.Focus();
             };
             _settings = SettingsManager.Load();
+			_enableLogging = _settings.EnableDebugLogging;
             _isMovieMode = true;
             _movieStreamUrl = streamUrl;
             _movieTitle = movieTitle;

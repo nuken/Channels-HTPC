@@ -27,6 +27,7 @@ namespace FeralCode
 		public bool ShowExtendedMetadata { get; set; } = false;
 		public bool ForceAacAudio { get; set; } = true;
         public List<ExternalStream> ExternalStreams { get; set; } = new List<ExternalStream>();
+		public bool EnableDebugLogging { get; set; } = false;
     }
 
    public static class SettingsManager

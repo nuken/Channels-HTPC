@@ -26,7 +26,9 @@ namespace FeralCode
             LightModeCheckBox.IsChecked = _settings.IsLightTheme;
             FullscreenCheckBox.IsChecked = _settings.StartPlayersFullscreen;
 			ShowExtendedMetadata.IsChecked = _settings.ShowExtendedMetadata;
-			ForceAacCheckBox.IsChecked = _settings.ForceAacAudio;
+			ForceAacCheckBox.IsChecked = _settings.ForceAacAudio;            
+            // NEW: Load the Logging Setting
+            EnableLoggingCheckBox.IsChecked = _settings.EnableDebugLogging;
 
             // NEW: Load Guide Duration
             if (_settings.GuideDurationHours == 8) GuideDurationBox.SelectedIndex = 1;
@@ -303,7 +305,7 @@ namespace FeralCode
             {
                 _settings.GuideDurationHours = parsedHours;
             }
-            
+            _settings.EnableDebugLogging = EnableLoggingCheckBox.IsChecked ?? false;
             SettingsManager.Save(_settings);
             ApplyTheme(_settings.IsLightTheme);
 

@@ -15,7 +15,7 @@ namespace FeralCode
     public partial class QuadPlayerWindow : Window
     {
         // --- NEW: Toggle this to false to disable logging! ---
-        private bool _enableLogging = true;
+        private bool _enableLogging;
 
         private LibVLC _libVLC;
         private LibVLCSharp.Shared.MediaPlayer[] _players = new LibVLCSharp.Shared.MediaPlayer[4];
@@ -48,13 +48,17 @@ namespace FeralCode
 
         public QuadPlayerWindow(string baseUrl, List<Channel> channels)
         {
+            // Load settings FIRST so the logger knows if it should be awake!
+            var initialSettings = SettingsManager.Load();
+            _enableLogging = initialSettings.EnableDebugLogging;
+
             LogDebug($"QuadPlayerWindow: Initializing with {channels.Count} channels.");
             InitializeComponent();
 
             this.Loaded += (s, e) =>
             {
                 this.Activate();
-                this.Topmost = true; 
+                this.Topmost = true; 				
 
                 var settings = SettingsManager.Load();
                 if (!settings.StartPlayersFullscreen)
@@ -70,7 +74,7 @@ namespace FeralCode
             
             _libVLC = MainWindow.SharedLibVLC;
             _totalActive = channels.Count;
-
+			
             _views = new[] { View0, View1, View2, View3 };
             _borders = new[] { Border0, Border1, Border2, Border3 };
 			_errorTexts = new[] { ErrorText0, ErrorText1, ErrorText2, ErrorText3 };
@@ -120,7 +124,7 @@ namespace FeralCode
                         LogDebug($"VLC CALLBACK: QuadPlayer {playerIndex} EncounteredError.");
                         
                         // --- SHOW THE ERROR TEXT ---
-                        Application.Current.Dispatcher.InvokeAsync(() => 
+                        _ = Application.Current.Dispatcher.InvokeAsync(() => 
                         {
                             _errorTexts[playerIndex].Visibility = Visibility.Visible;
                         });
@@ -129,7 +133,7 @@ namespace FeralCode
                     _players[playerIndex].Playing += async (sender, args) => 
                     {
                         // --- HIDE THE ERROR TEXT IF IT SUCCESSFULLY PLAYS ---
-                        Application.Current.Dispatcher.InvokeAsync(() => 
+                        _ = Application.Current.Dispatcher.InvokeAsync(() => 
                         {
                             _errorTexts[playerIndex].Visibility = Visibility.Collapsed;
                         });
@@ -142,7 +146,7 @@ namespace FeralCode
                     };
                     
                   // --- THE FIX: Clean Native Loading & STAGGERED TUNING ---
-                    Task.Run(async () => 
+                    _ = Task.Run(async () => 
                     {
                         try
                         {
@@ -306,7 +310,7 @@ namespace FeralCode
             Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
             _isWaitingForCast = false;
 
-            Dispatcher.InvokeAsync(async () =>
+            _ = Dispatcher.InvokeAsync(async () =>
             {
                 await Task.Delay(2000); 
 
