@@ -8,11 +8,15 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using LibVLCSharp.Shared;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 namespace FeralCode
 {
     public partial class QuadPlayerWindow : Window
     {
+        // --- NEW: Toggle this to false to disable logging! ---
+        private bool _enableLogging = false;
+
         private LibVLC _libVLC;
         private LibVLCSharp.Shared.MediaPlayer[] _players = new LibVLCSharp.Shared.MediaPlayer[4];
         private LibVLCSharp.WPF.VideoView[] _views;
@@ -24,7 +28,10 @@ namespace FeralCode
         private DispatcherTimer _audioTimer;
         private DispatcherTimer _uiTimer;
         private DateTime _lastMouseMove = DateTime.MinValue;
-		private Window? _glassOverlay;
+        private Window? _glassOverlay;
+        
+        // --- NEW: Watchdog & Cast Trackers ---
+        private bool _isWaitingForCast = false;
 
         [DllImport("user32.dll")]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
@@ -32,8 +39,15 @@ namespace FeralCode
         private const byte VK_K = 0x4B;
         private const uint KEYEVENTF_KEYUP = 0x0002;
 
+        // --- NEW: Local Logger Helper ---
+        private void LogDebug(string msg)
+        {
+            if (_enableLogging) AppLogger.Log(msg);
+        }
+
         public QuadPlayerWindow(string baseUrl, List<Channel> channels)
         {
+            LogDebug($"QuadPlayerWindow: Initializing with {channels.Count} channels.");
             InitializeComponent();
 
             this.Loaded += (s, e) =>
@@ -48,7 +62,6 @@ namespace FeralCode
                     if (_isFullscreen) ToggleFullscreen(); 
                 }
                 
-                // --- FIX: Build the overlay AFTER the main window is fully loaded on screen ---
                 SetupGlassOverlay(); 
                 
                 this.Focus();
@@ -60,7 +73,6 @@ namespace FeralCode
             _views = new[] { View0, View1, View2, View3 };
             _borders = new[] { Border0, Border1, Border2, Border3 };
 
-            // Initialize the 250ms debouncer to protect the audio pipeline!
             _audioTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
             _audioTimer.Tick += (s, e) => 
             {
@@ -72,46 +84,62 @@ namespace FeralCode
             {
                 if (i < channels.Count)
                 {
-                    _players[i] = new LibVLCSharp.Shared.MediaPlayer(_libVLC);
-                    _views[i].MediaPlayer = _players[i];
+                    int playerIndex = i; // Create local copy for async closure
+                    LogDebug($"QuadPlayerWindow: Setting up player {playerIndex} for CH {channels[playerIndex].Number}");
+                    
+                    _players[playerIndex] = new LibVLCSharp.Shared.MediaPlayer(_libVLC);
+                    _views[playerIndex].MediaPlayer = _players[playerIndex];
 
-                    // --- NEW: Settings-Driven Audio Codec Logic ---
-                    string audioCodec = "aac"; // Default to the ultra-stable AAC
-
+                    string audioCodec = "aac"; 
                     var settings = SettingsManager.Load();
                     if (!settings.ForceAacAudio)
                     {
-                        // The user disabled forced AAC, so default to raw Passthrough
                         audioCodec = "copy";
-                        
-                        // ...but still catch the specific 100-199 channel block!
-                        if (double.TryParse(channels[i].Number, out double chNum) && chNum >= 100 && chNum < 200)
+                        if (double.TryParse(channels[playerIndex].Number, out double chNum) && chNum >= 100 && chNum < 200)
                         {
                             audioCodec = "aac";
                         }
                     }
 
-                    string streamUrl = $"{baseUrl.TrimEnd('/')}/devices/ANY/channels/{channels[i].Number}/hls/master.m3u8?vcodec=copy&acodec={audioCodec}";
-                    var media = new Media(_libVLC, new Uri(streamUrl));
+                    string streamUrl = $"{baseUrl.TrimEnd('/')}/devices/ANY/channels/{channels[playerIndex].Number}/hls/master.m3u8?vcodec=copy&acodec={audioCodec}";
                     
-                    media.AddOption(":network-caching=2000");
-                    media.AddOption(":live-caching=2000");
-                    media.AddOption(":http-reconnect");
-                    media.AddOption(":avcodec-hw=none");
-                    
-                    _players[i].Playing += async (sender, args) => 
+                    _players[playerIndex].EncounteredError += (sender, args) => 
                     {
-                        await System.Threading.Tasks.Task.Delay(1000); 
+                        LogDebug($"VLC CALLBACK: QuadPlayer {playerIndex} EncounteredError.");
+                    };
+
+                    _players[playerIndex].Playing += async (sender, args) => 
+                    {
+                        await Task.Delay(1000); 
                         Application.Current.Dispatcher.Invoke(() => ApplyAudioFocus());
                         
-                        await System.Threading.Tasks.Task.Delay(2500); 
+                        await Task.Delay(2500); 
                         Application.Current.Dispatcher.Invoke(() => ApplyAudioFocus());
                     };
                     
-                    using (media)
+                    // --- THE FIX: Clean Native Loading ---
+                    Task.Run(() => 
                     {
-                        _players[i].Play(media);
-                    }
+                        try
+                        {
+                            var media = new Media(_libVLC, new Uri(streamUrl));
+                            
+                            media.AddOption(":network-caching=2000");
+                            media.AddOption(":live-caching=2000");
+                            media.AddOption(":avcodec-hw=none");
+                            
+                            // Prevent corrupted subtitles from natively crashing VLC
+                            media.AddOption(":no-spu");
+                            media.AddOption(":no-sub-autodetect-file");
+
+                            // DO NOT use a 'using' statement here! Let VLC hold the reference.
+                            _players[playerIndex].Play(media);
+                        }
+                        catch (Exception ex)
+                        {
+                            LogDebug($"QuadPlayer {playerIndex} Background Task Error: {ex.Message}");
+                        }
+                    });
                 }
                 else
                 {
@@ -120,18 +148,14 @@ namespace FeralCode
             }
 
             DebounceAudioSwitch();
-            // REMOVED SetupGlassOverlay() from here!
 
-            // Setup Auto-Hiding UI Timer
             _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
             _uiTimer.Tick += UiTimer_Tick;
             _uiTimer.Start();
         }
 
-        // --- NEW: Clean Native WPF Overlay Handlers ---
         private void Overlay_MouseMove(object sender, MouseEventArgs e)
         {
-            // Prevent micro-movements from spamming the UI
             if ((DateTime.Now - _lastMouseMove).TotalMilliseconds < 100) return;
             _lastMouseMove = DateTime.Now;
 
@@ -144,55 +168,50 @@ namespace FeralCode
             _uiTimer.Stop();
             _uiTimer.Start();
         }
-		
-		private void SetupGlassOverlay()
-{
-    // 1. Detach the XAML overlay from the main window to bypass the Airspace issue
-    LayoutRoot.Children.Remove(OverlayGrid);
-
-    // 2. Wrap it in a completely transparent, floating hardware window
-    _glassOverlay = new Window
-    {
-        WindowStyle = WindowStyle.None,
-        AllowsTransparency = true,
-        Background = Brushes.Transparent,
-        ShowInTaskbar = false,
-        ShowActivated = false,
-        Owner = this,
-        Content = OverlayGrid // Attach the XAML design here!
-    };
-
-    // --- MISSING LINE ADDED HERE ---
-    // Pass any stray keyboard presses through to our main logic
-    _glassOverlay.PreviewKeyDown += Window_PreviewKeyDown;
-
-    // 3. Keep the glass exactly matched to the video player size
-    this.LocationChanged += (s, e) => SyncOverlay();
-    this.SizeChanged += (s, e) => SyncOverlay();
-    this.StateChanged += (s, e) => SyncOverlay();
-
-    _glassOverlay.Show();
-    SyncOverlay();
-}
-
-private void SyncOverlay()
-{
-    if (_glassOverlay != null)
-    {
-        if (this.WindowState == WindowState.Maximized)
+        
+        private void SetupGlassOverlay()
         {
-            _glassOverlay.WindowState = WindowState.Maximized;
+            LayoutRoot.Children.Remove(OverlayGrid);
+
+            _glassOverlay = new Window
+            {
+                WindowStyle = WindowStyle.None,
+                AllowsTransparency = true,
+                Background = Brushes.Transparent,
+                ShowInTaskbar = false,
+                ShowActivated = false,
+                Owner = this,
+                Content = OverlayGrid 
+            };
+
+            _glassOverlay.PreviewKeyDown += Window_PreviewKeyDown;
+
+            this.LocationChanged += (s, e) => SyncOverlay();
+            this.SizeChanged += (s, e) => SyncOverlay();
+            this.StateChanged += (s, e) => SyncOverlay();
+
+            _glassOverlay.Show();
+            SyncOverlay();
         }
-        else
+
+        private void SyncOverlay()
         {
-            _glassOverlay.WindowState = WindowState.Normal;
-            _glassOverlay.Left = this.Left;
-            _glassOverlay.Top = this.Top;
-            _glassOverlay.Width = this.ActualWidth;
-            _glassOverlay.Height = this.ActualHeight;
+            if (_glassOverlay != null)
+            {
+                if (this.WindowState == WindowState.Maximized)
+                {
+                    _glassOverlay.WindowState = WindowState.Maximized;
+                }
+                else
+                {
+                    _glassOverlay.WindowState = WindowState.Normal;
+                    _glassOverlay.Left = this.Left;
+                    _glassOverlay.Top = this.Top;
+                    _glassOverlay.Width = this.ActualWidth;
+                    _glassOverlay.Height = this.ActualHeight;
+                }
+            }
         }
-    }
-}
 
         private void UiTimer_Tick(object? sender, EventArgs e)
         {
@@ -224,19 +243,43 @@ private void SyncOverlay()
                     DebounceAudioSwitch();
                 }
                 
-                // Ensure UI stays awake after clicking
                 Overlay_MouseMove(overlay, e); 
             }
         }
 
-        // --- Control Bar Click Handlers ---
+        // --- NEW: Auto-Cast Auto-Fullscreen Feature ---
         private void CastButton_Click(object sender, RoutedEventArgs e)
         {
+            LogDebug("UI Action: CastButton_Click triggered in QuadPlayer.");
             keybd_event(VK_LWIN, 0, 0, 0);
             keybd_event(VK_K, 0, 0, 0);
             keybd_event(VK_K, 0, KEYEVENTF_KEYUP, 0);
             keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, 0);
+            
             Overlay_MouseMove(null!, null!);
+
+            if (!_isWaitingForCast)
+            {
+                _isWaitingForCast = true;
+                Microsoft.Win32.SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
+            }
+        }
+
+        private void SystemEvents_DisplaySettingsChanged(object? sender, EventArgs e)
+        {
+            LogDebug("Event: SystemEvents_DisplaySettingsChanged fired in QuadPlayer (Cast connected)");
+            Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
+            _isWaitingForCast = false;
+
+            Dispatcher.InvokeAsync(async () =>
+            {
+                await Task.Delay(2000); 
+
+                if (!_isFullscreen)
+                {
+                    ToggleFullscreen();
+                }
+            });
         }
 
         private void ToggleFullscreen_Click(object sender, RoutedEventArgs e) => ToggleFullscreen();
@@ -254,7 +297,6 @@ private void SyncOverlay()
             }
         }
 
-        // 1. Move the visual border INSTANTLY
         private void DebounceAudioSwitch()
         {
             for (int i = 0; i < 4; i++)
@@ -264,12 +306,10 @@ private void SyncOverlay()
                     : Brushes.Transparent;
             }
             
-            // Start the 250ms countdown to switch the actual audio tracks safely
             _audioTimer.Stop();
             _audioTimer.Start();
         }
 
-        // --- THE AUDIO FIX: Safe Hardware Track Switching ---
         private void ApplyAudioFocus()
         {
             for (int i = 0; i < _totalActive; i++)
@@ -278,7 +318,6 @@ private void SyncOverlay()
                 {
                     if (i == _activeIndex)
                     {
-                        // Jiggle the mute to ensure Windows recognizes it
                         _players[i].Mute = true; 
                         _players[i].Mute = false;
 
@@ -297,7 +336,6 @@ private void SyncOverlay()
                     }
                     else
                     {
-                        // Safely kill the background decoders to prevent audio bleed
                         _players[i].SetAudioTrack(-1);
                     }
                 }
@@ -324,7 +362,6 @@ private void SyncOverlay()
             }
         }
 
-        // --- API Gateway Methods ---
         public void ToggleMute()
         {
             if (_players[_activeIndex] != null)
@@ -456,28 +493,43 @@ private void SyncOverlay()
         }
 
         protected override void OnClosed(EventArgs e)
-{
-    _audioTimer?.Stop();
-    _uiTimer?.Stop();
-
-    // Destroy the overlay window
-    if (_glassOverlay != null)
-    {
-        _glassOverlay.Close();
-    }
-
-    for (int i = 0; i < 4; i++)
-    {
-        if (_players[i] != null)
         {
-            if (_players[i].IsPlaying) _players[i].Stop();
-            _players[i].Dispose();
+            LogDebug("QuadPlayerWindow: OnClosed triggered. Cleaning up resources.");
+            Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
+            
+            _audioTimer?.Stop();
+            _uiTimer?.Stop();
+
+            if (_glassOverlay != null)
+            {
+                _glassOverlay.Close();
+            }
+
+            // --- THE FIX: Detach before stopping in background! ---
+            var playersToDispose = _players.ToArray();
+
+            for (int i = 0; i < 4; i++)
+            {
+                if (_views[i] != null) _views[i].MediaPlayer = null; 
+            }
+
+            Task.Run(() =>
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    if (playersToDispose[i] != null)
+                    {
+                        if (playersToDispose[i].IsPlaying) playersToDispose[i].Stop();
+                        System.Threading.Thread.Sleep(50); // Let VLC release D3D locks
+                        playersToDispose[i].Dispose();
+                    }
+                }
+                LogDebug("QuadPlayerWindow: Background teardown complete.");
+            });
+            
+            base.OnClosed(e);
+            Application.Current.MainWindow?.Show();
+            Application.Current.MainWindow?.Activate();
         }
-    }
-    
-    base.OnClosed(e);
-    Application.Current.MainWindow?.Show();
-    Application.Current.MainWindow?.Activate();
-}
     }
 }

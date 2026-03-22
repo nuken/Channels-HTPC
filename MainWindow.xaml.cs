@@ -15,6 +15,7 @@ using System.Net;
 using System.Net.Sockets;
 using Microsoft.Extensions.FileProviders;
 using System.Reflection;
+using System.IO;
 
 namespace FeralCode
 {
@@ -24,36 +25,31 @@ namespace FeralCode
         
         private WebApplication? _webHost;
 
-        // --- NEW: Upgraded Property to automatically hide the window and force activation ---
-private PlayerWindow? _activePlayerWindow;
-public PlayerWindow? ActivePlayerWindow 
-{ 
-    get => _activePlayerWindow;
-    set
-    {
-        _activePlayerWindow = value;
-        if (_activePlayerWindow != null)
-        {
-            // 1. Hide the MainWindow immediately when a player is spawned
-            this.Hide(); 
-
-            _activePlayerWindow.Closed += (s, e) => 
+        private PlayerWindow? _activePlayerWindow;
+        public PlayerWindow? ActivePlayerWindow 
+        { 
+            get => _activePlayerWindow;
+            set
             {
-                // 2. Use InvokeAsync so we don't flash the main window if the user 
-                // is just using the remote to instantly swap from one channel to another.
-                Application.Current.Dispatcher.InvokeAsync(() => 
+                _activePlayerWindow = value;
+                if (_activePlayerWindow != null)
                 {
-                    // Only show the main window if no other players were opened in the meantime
-                    if (ActivePlayerWindow == null)
+                    this.Hide(); 
+
+                    _activePlayerWindow.Closed += (s, e) => 
                     {
-                        this.Show();     // Un-hide the MainWindow
-                        this.Activate(); // Force OS to give MainWindow control again
-                    }
-                }, System.Windows.Threading.DispatcherPriority.Normal);
-            };
+                        Application.Current.Dispatcher.InvokeAsync(() => 
+                        {
+                            if (ActivePlayerWindow == null)
+                            {
+                                this.Show();     
+                                this.Activate(); 
+                            }
+                        }, System.Windows.Threading.DispatcherPriority.Normal);
+                    };
+                }
+            }
         }
-    }
-}
 
         [DllImport("user32.dll")]
         private static extern bool SetCursorPos(int X, int Y);
@@ -80,21 +76,30 @@ public PlayerWindow? ActivePlayerWindow
             InitializeComponent();
             Core.Initialize(); 
             
+            AppLogger.Log("=== APPLICATION STARTED ===");
+
             SharedLibVLC = new LibVLC(
                 "--no-mouse-events",    
                 "--no-keyboard-events", 
                 "--avcodec-threads=0",  
-                "--ts-trust-pcr",
                 "--network-caching=3000",
-                "--live-caching=3000"
+                "--live-caching=3000",
+                "--file-caching=3000"
             );
+
+            SharedLibVLC.Log += (sender, e) => 
+            {
+                if (e.Level == LogLevel.Warning || e.Level == LogLevel.Error || e.Level == LogLevel.Notice)
+                {
+                    AppLogger.Log($"[VLC ENGINE] [{e.Level}] {e.Module}: {e.Message}");
+                }
+            };
 
             StartWebServer();
             MainFrame.Navigate(new StartPage());
 
             this.PreviewKeyDown += MainWindow_PreviewKeyDown;
 
-            // --- NEW FIX: Auto-heal focus whenever a player closes and the main app regains control ---
             this.Activated += (s, e) =>
             {
                 Application.Current.Dispatcher.InvokeAsync(() =>
@@ -112,7 +117,6 @@ public PlayerWindow? ActivePlayerWindow
             };
         }
 
-        // --- NEW: The Void Recovery System ---
         private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             bool isNavKey = e.Key == System.Windows.Input.Key.Up || e.Key == System.Windows.Input.Key.Down || 
@@ -127,7 +131,6 @@ public PlayerWindow? ActivePlayerWindow
                 {
                     page.MoveFocus(new System.Windows.Input.TraversalRequest(System.Windows.Input.FocusNavigationDirection.First));
                     
-                    // If the key was Back, inject it manually into the Page so it triggers your custom back logic
                     if (e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)
                     {
                         var keyArgs = new System.Windows.Input.KeyEventArgs(
@@ -135,7 +138,7 @@ public PlayerWindow? ActivePlayerWindow
                             System.Windows.PresentationSource.FromVisual(this) ?? new System.Windows.Interop.HwndSource(0, 0, 0, 0, 0, "", IntPtr.Zero), 
                             0, e.Key) { RoutedEvent = System.Windows.Input.Keyboard.PreviewKeyDownEvent };
                         page.RaiseEvent(keyArgs);
-                        e.Handled = true; // Stop native WPF Frame from breaking the page state
+                        e.Handled = true; 
                     }
                 }
             }
@@ -327,7 +330,7 @@ public PlayerWindow? ActivePlayerWindow
                         }); 
                         return Results.Ok(); 
                     });
-					
+                    
                     _webHost.MapPost("/api/remote/multiview/setup", () => 
                     {
                         Application.Current.Dispatcher.Invoke(() => 
@@ -346,7 +349,7 @@ public PlayerWindow? ActivePlayerWindow
                         });
                         return Results.Ok();
                     });
-					
+                    
                     _webHost.MapPost("/api/remote/multiview/audio/{index}", (int index) => 
                     {
                         Application.Current.Dispatcher.Invoke(() => 
@@ -432,7 +435,7 @@ public PlayerWindow? ActivePlayerWindow
                     });
 
                     _webHost.MapPost("/api/remote/stats", () => { Application.Current.Dispatcher.Invoke(() => ActivePlayerWindow?.ToggleStats()); return Results.Ok(); });
-                   _webHost.MapPost("/api/remote/fullscreen", () =>
+                    _webHost.MapPost("/api/remote/fullscreen", () =>
                     {
                         Application.Current.Dispatcher.Invoke(() =>
                         {
@@ -479,7 +482,7 @@ public PlayerWindow? ActivePlayerWindow
                             else if (direction == "left") vk = 0x25;
                             else if (direction == "right") vk = 0x27;
                             else if (direction == "enter") vk = 0x0D;
-                            else if (direction == "back") vk = 0x08; // --- NEW: Simulates the physical U-Turn / Back key! ---
+                            else if (direction == "back") vk = 0x08;
 
                             if (vk != 0)
                             {
@@ -696,6 +699,26 @@ public PlayerWindow? ActivePlayerWindow
                     Dispatcher.Invoke(() => MessageBox.Show($"Web Server failed:\n{ex.Message}", "Server Error", MessageBoxButton.OK, MessageBoxImage.Error));
                 }
             });
+        }
+    }
+
+    // --- NEW: Custom Application Logger ---
+    public static class AppLogger
+    {
+        // Force the log file directly onto your Windows Desktop!
+        private static readonly string LogFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "feral_debug.log");
+        private static readonly object _lock = new object();
+
+        public static void Log(string message)
+        {
+            try
+            {
+                lock (_lock)
+                {
+                    File.AppendAllText(LogFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}{Environment.NewLine}");
+                }
+            }
+            catch { /* Do not crash the app if logging fails */ }
         }
     }
 }

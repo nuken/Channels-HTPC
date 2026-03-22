@@ -7,11 +7,15 @@ using System.Threading.Tasks;
 using LibVLCSharp.Shared;
 using System.Windows.Controls;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 
 namespace FeralCode
 {
     public partial class PlayerWindow : Window
     {
+        // --- NEW: Toggle this to false to disable logging! ---
+        private bool _enableLogging = false;
+
         private MediaPlayer _mediaPlayer;
         private string _baseUrl = ""; 
         private List<Channel>? _channels;
@@ -47,33 +51,42 @@ namespace FeralCode
         private bool _previousTopmost;
         private bool _isFullscreen = false;
         private bool _isWaitingToBuffer = false;
-		
-		[DllImport("user32.dll")]
-private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
+        private bool _isWaitingForCast = false;
+        private DispatcherTimer? _tuneTimeoutTimer;
 
-private const byte VK_LWIN = 0x5B; // Left Windows Key
-private const byte VK_K = 0x4B;    // 'K' Key
-private const uint KEYEVENTF_KEYUP = 0x0002;
+        [DllImport("user32.dll")]
+        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
 
-private void CastButton_Click(object sender, RoutedEventArgs e)
-{
-    // Simulate Win + K
-    // 1. Press Windows Key
-    keybd_event(VK_LWIN, 0, 0, 0);
-    // 2. Press K
-    keybd_event(VK_K, 0, 0, 0);
-    // 3. Release K
-    keybd_event(VK_K, 0, KEYEVENTF_KEYUP, 0);
-    // 4. Release Windows Key
-    keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, 0);
-    
-    // Ensure the UI overlay stays visible while the user interacts with the menu
-    Overlay_MouseMove(null!, null!);
-}
+        private const byte VK_LWIN = 0x5B; 
+        private const byte VK_K = 0x4B;    
+        private const uint KEYEVENTF_KEYUP = 0x0002;
+
+        // --- NEW: Local Logger Helper ---
+        private void LogDebug(string msg)
+        {
+            if (_enableLogging) AppLogger.Log(msg);
+        }
+
+        private void CastButton_Click(object sender, RoutedEventArgs e)
+        {
+            LogDebug("UI Action: CastButton_Click triggered.");
+            keybd_event(VK_LWIN, 0, 0, 0);
+            keybd_event(VK_K, 0, 0, 0);
+            keybd_event(VK_K, 0, KEYEVENTF_KEYUP, 0);
+            keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, 0);
+            
+            Overlay_MouseMove(null!, null!);
+            if (!_isWaitingForCast)
+            {
+                _isWaitingForCast = true;
+                SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
+            }
+        }
 
         // --- ORIGINAL CONSTRUCTOR: Live TV Mode ---
         public PlayerWindow(string baseUrl, List<Channel> channels, int startIndex)
         {
+            LogDebug($"PlayerWindow Constructor (Live TV): Initializing for baseUrl {baseUrl}, startIndex {startIndex}");
             InitializeComponent();
             this.Loaded += (s, e) =>
             {
@@ -102,6 +115,10 @@ private void CastButton_Click(object sender, RoutedEventArgs e)
             _mediaPlayer.EndReached += MediaPlayer_EndReached;
             _mediaPlayer.Buffering += MediaPlayer_Buffering;
             _mediaPlayer.Playing += MediaPlayer_Playing;
+            _mediaPlayer.EncounteredError += MediaPlayer_EncounteredError;
+            
+            _tuneTimeoutTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+            _tuneTimeoutTimer.Tick += TuneTimeoutTimer_Tick;
 
             _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
             _uiTimer.Tick += UiTimer_Tick;
@@ -112,6 +129,7 @@ private void CastButton_Click(object sender, RoutedEventArgs e)
             this.Loaded += PlayerWindow_Loaded;
             this.Closed += PlayerWindow_Closed;
             this.PreviewKeyUp += Window_PreviewKeyUp;
+            this.PreviewKeyDown += Window_PreviewKeyDown;
             
             if (_settings.StartPlayersFullscreen)
             {
@@ -121,6 +139,23 @@ private void CastButton_Click(object sender, RoutedEventArgs e)
                 this.Topmost = true; 
                 _isFullscreen = true; 
             }
+        }
+        
+        private void SystemEvents_DisplaySettingsChanged(object? sender, EventArgs e)
+        {
+            LogDebug("Event: SystemEvents_DisplaySettingsChanged fired (Cast connected)");
+            SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
+            _isWaitingForCast = false;
+
+            Dispatcher.InvokeAsync(async () =>
+            {
+                await Task.Delay(2000); 
+
+                if (!_isFullscreen)
+                {
+                    ToggleFullscreen();
+                }
+            });
         }
         
         private void LiveProgressTimer_Tick(object? sender, EventArgs e)
@@ -146,6 +181,7 @@ private void CastButton_Click(object sender, RoutedEventArgs e)
         // --- NEW CONSTRUCTOR: Movie Mode! ---
         public PlayerWindow(string streamUrl, string movieTitle, string posterUrl, List<double>? commercials)
         {
+            LogDebug($"PlayerWindow Constructor (Movie Mode): Initializing for title '{movieTitle}'");
             InitializeComponent();
             this.Loaded += (s, e) =>
             {
@@ -174,9 +210,13 @@ private void CastButton_Click(object sender, RoutedEventArgs e)
             _mediaPlayer.EndReached += MediaPlayer_EndReached;
             _mediaPlayer.Buffering += MediaPlayer_Buffering;
             _mediaPlayer.Playing += MediaPlayer_Playing;
+            _mediaPlayer.EncounteredError += MediaPlayer_EncounteredError;
             
             _mediaPlayer.TimeChanged += MediaPlayer_TimeChanged;
             _mediaPlayer.LengthChanged += MediaPlayer_LengthChanged;
+            
+            _tuneTimeoutTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
+            _tuneTimeoutTimer.Tick += TuneTimeoutTimer_Tick;
 
             _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
             _uiTimer.Tick += UiTimer_Tick;
@@ -187,6 +227,7 @@ private void CastButton_Click(object sender, RoutedEventArgs e)
             this.Loaded += PlayerWindow_Loaded;
             this.Closed += PlayerWindow_Closed;
             this.PreviewKeyUp += Window_PreviewKeyUp;
+            this.PreviewKeyDown += Window_PreviewKeyDown;
             
             if (_settings.StartPlayersFullscreen)
             {
@@ -281,13 +322,47 @@ private void CastButton_Click(object sender, RoutedEventArgs e)
         
         private void MediaPlayer_Playing(object? sender, EventArgs e)
         {
+            LogDebug("VLC CALLBACK: MediaPlayer_Playing Fired!");
             Dispatcher.BeginInvoke(new Action(async () =>
             {
+                _tuneTimeoutTimer?.Stop();
                 await Task.Delay(300);
 
                 _isWaitingToBuffer = false;
                 LoadingOverlay.Visibility = Visibility.Collapsed;
             }));
+        }
+
+        private void TuneTimeoutTimer_Tick(object? sender, EventArgs e)
+        {
+            LogDebug("TuneTimeoutTimer_Tick: Fired! 15 seconds elapsed without playback locking on.");
+            _tuneTimeoutTimer?.Stop();
+            
+            if (_mediaPlayer != null && _mediaPlayer.IsPlaying)
+            {
+                _mediaPlayer.Stop(); 
+            }
+
+            LoadingOverlay.Visibility = Visibility.Collapsed;
+            MessageBox.Show("Tuning timed out. The OTA signal might be too weak to lock onto.", 
+                            "Weak Signal", MessageBoxButton.OK, MessageBoxImage.Warning);
+            
+            this.Close(); 
+        }
+
+        private void MediaPlayer_EncounteredError(object? sender, EventArgs e)
+        {
+            LogDebug("VLC CALLBACK: MediaPlayer_EncounteredError Fired!");
+            Dispatcher.InvokeAsync(() =>
+            {
+                _tuneTimeoutTimer?.Stop();
+                LoadingOverlay.Visibility = Visibility.Collapsed;
+                
+                MessageBox.Show("A playback error occurred. The stream may be unavailable or the signal was lost.", 
+                                "Playback Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                
+                this.Close(); 
+            });
         }
         
         public void TogglePiP()
@@ -473,6 +548,7 @@ private void CastButton_Click(object sender, RoutedEventArgs e)
 
         private void PlayMovie()
         {
+            LogDebug("PlayMovie: Method invoked.");
             UiChannelNumber.Text = "🎬 MOVIE";
             UiShowTitle.Text = _movieTitle;
             
@@ -481,26 +557,17 @@ private void CastButton_Click(object sender, RoutedEventArgs e)
             else
                 UiChannelLogo.Source = null;
             
-            if (_mediaPlayer.IsPlaying) 
-            {
-                _mediaPlayer.Stop();
-                if (_mediaPlayer.Media != null)
-                {
-                    _mediaPlayer.Media.Dispose();
-                    _mediaPlayer.Media = null;
-                }
-            }
-
-            var media = new Media(MainWindow.SharedLibVLC, new Uri(_movieStreamUrl));
-            media.AddOption(":network-caching=2000");
-            
             LoadingOverlay.Visibility = Visibility.Visible;
             LoadingText.Text = "Connecting...";
 
-            using (media)
-            {
-                _mediaPlayer.Play(media);
-            }
+            _tuneTimeoutTimer?.Stop(); 
+            _tuneTimeoutTimer?.Start();
+
+            var media = new Media(MainWindow.SharedLibVLC, new Uri(_movieStreamUrl));
+            media.AddOption(":network-caching=2000");
+
+            _mediaPlayer.Play(media);
+            LogDebug("PlayMovie: _mediaPlayer.Play() called.");
         }
         
         private void TimelineSlider_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -541,107 +608,132 @@ private void CastButton_Click(object sender, RoutedEventArgs e)
 
         private void PlayCurrentChannel()
         {
-            if (_channels == null || !_channels.Any()) return;
+            try
+            {
+                LogDebug("PlayCurrentChannel: Method invoked.");
+                if (_channels == null || !_channels.Any()) return;
 
-            var currentChannel = _channels[_currentIndex];
-            var currentAiring = currentChannel.CurrentAirings?.FirstOrDefault(a => a.IsAiringNow);
-            
-            UiChannelNumber.Text = $"CH {currentChannel.Number}";
-            UiShowTitle.Text = currentAiring != null ? currentAiring.DisplayTitle : currentChannel.Name;
-            
-            if (!string.IsNullOrWhiteSpace(currentChannel.ImageUrl))
-            {
-                UiChannelLogo.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(currentChannel.ImageUrl));
-            }
-            else
-            {
-                UiChannelLogo.Source = null;
-            }
-            
-            string streamUrl = "";
-            int offsetSeconds = 0;
-
-            if (currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase))
-            {
-                if (currentAiring != null && !string.IsNullOrWhiteSpace(currentAiring.Source))
+                var currentChannel = _channels[_currentIndex];
+                var currentAiring = currentChannel.CurrentAirings?.FirstOrDefault(a => a.IsAiringNow);
+                
+                UiChannelNumber.Text = $"CH {currentChannel.Number}";
+                UiShowTitle.Text = currentAiring != null ? currentAiring.DisplayTitle : currentChannel.Name;
+                
+                // --- THE FIX: Safely load the image ---
+                try
                 {
-                    string fileId = currentAiring.Source.Split('/').Last(); 
-                    streamUrl = $"{_baseUrl}/dvr/files/{fileId}/hls/master.m3u8";
-                    
-                    offsetSeconds = (int)(DateTime.Now - currentAiring.StartTime).TotalSeconds;
-                    if (offsetSeconds < 0) offsetSeconds = 0;
+                    if (!string.IsNullOrWhiteSpace(currentChannel.ImageUrl))
+                    {
+                        // Ignore case issues, ensure it's absolute, and catch 404s
+                        UiChannelLogo.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(currentChannel.ImageUrl, UriKind.Absolute));
+                    }
+                    else
+                    {
+                        UiChannelLogo.Source = null;
+                    }
+                }
+                catch (Exception imgEx)
+                {
+                    LogDebug($"Warning: Failed to load logo for CH {currentChannel.Number}. Error: {imgEx.Message}");
+                    UiChannelLogo.Source = null; // Fallback gracefully
+                }
+                
+                string streamUrl = "";
+                int offsetSeconds = 0;
+
+                if (currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase))
+                {
+                    LogDebug("PlayCurrentChannel: Virtual channel detected.");
+                    if (currentAiring != null && !string.IsNullOrWhiteSpace(currentAiring.Source))
+                    {
+                        string fileId = currentAiring.Source.Split('/').Last(); 
+                        streamUrl = $"{_baseUrl}/dvr/files/{fileId}/hls/master.m3u8";
+                        
+                        offsetSeconds = (int)(DateTime.Now - currentAiring.StartTime).TotalSeconds;
+                        if (offsetSeconds < 0) offsetSeconds = 0;
+                    }
+                    else
+                    {
+                        LogDebug("PlayCurrentChannel: Virtual channel missing source media.");
+                        MessageBox.Show("No active media is scheduled for this Virtual Channel right now.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        this.Close();
+                        return;
+                    }
                 }
                 else
                 {
-                    MessageBox.Show("No active media is scheduled for this Virtual Channel right now.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    this.Close();
-                    return;
-                }
-            }
-            else
-            {
-                // --- NEW: Settings-Driven Audio Codec Logic ---
-                var settings = SettingsManager.Load();
-                string audioCodec = "aac"; // Default to the ultra-stable AAC
+                    var settings = SettingsManager.Load();
+                    string audioCodec = "aac"; 
 
-                if (!settings.ForceAacAudio)
-                {
-                    // The user disabled forced AAC, so default to raw Passthrough
-                    audioCodec = "copy";
-                    
-                    // ...but still catch the specific ATSC 3.0 virtual channels!
-                    if (double.TryParse(currentChannel.Number, out double chNum) && chNum >= 100 && chNum < 200)
+                    if (!settings.ForceAacAudio)
                     {
-                        audioCodec = "aac";
+                        audioCodec = "copy";
+                        if (double.TryParse(currentChannel.Number, out double chNum) && chNum >= 100 && chNum < 200)
+                            audioCodec = "aac";
+                    }
+
+                    streamUrl = $"{_baseUrl.TrimEnd('/')}/devices/ANY/channels/{currentChannel.Number}/stream.mpg?format=ts&vcodec=copy&acodec={audioCodec}";
+                }
+
+                LogDebug($"PlayCurrentChannel: Final Stream URL: {streamUrl}");
+
+                if (_mediaPlayer.IsPlaying) 
+                {
+                    LogDebug("PlayCurrentChannel: Stopping previously playing _mediaPlayer.");
+                    _mediaPlayer.Stop();
+                    if (_mediaPlayer.Media != null)
+                    {
+                        _mediaPlayer.Media.Dispose();
+                        _mediaPlayer.Media = null;
                     }
                 }
 
-                streamUrl = $"{_baseUrl.TrimEnd('/')}/devices/ANY/channels/{currentChannel.Number}/stream.mpg?format=ts&vcodec=copy&acodec={audioCodec}";
-            }
+                LogDebug("PlayCurrentChannel: Creating new LibVLC Media object.");
+                var media = new Media(MainWindow.SharedLibVLC, new Uri(streamUrl));
 
-            if (_mediaPlayer.IsPlaying) 
-            {
-                _mediaPlayer.Stop();
-                if (_mediaPlayer.Media != null)
+                media.AddOption(":network-caching=2000");
+                media.AddOption(":live-caching=2000");
+                media.AddOption(":avcodec-hw=none");
+                
+                // --- CRITICAL VLC FIX: Disable Subtitles! ---
+                media.AddOption(":no-spu");
+                media.AddOption(":no-sub-autodetect-file");
+
+                if (offsetSeconds > 0)
                 {
-                    _mediaPlayer.Media.Dispose();
-                    _mediaPlayer.Media = null;
+                    media.AddOption($":start-time={offsetSeconds}");
                 }
-            }
 
-            var media = new Media(MainWindow.SharedLibVLC, new Uri(streamUrl));
+                LoadingOverlay.Visibility = Visibility.Visible;
+                LoadingText.Text = "Connecting...";
 
-            media.AddOption(":network-caching=2000");
-            media.AddOption(":live-caching=2000");
-            media.AddOption(":http-reconnect");
-            media.AddOption(":avcodec-hw=none");
-            
-            if (offsetSeconds > 0)
-            {
-                media.AddOption($":start-time={offsetSeconds}");
-            }
+                if (currentAiring != null && currentAiring.Duration.HasValue)
+                {
+                    TimelineSlider.Maximum = currentAiring.Duration.Value * 1000;
+                    TotalTimeText.Text = TimeSpan.FromSeconds(currentAiring.Duration.Value).ToString(@"h\:mm\:ss");
+                    _liveProgressTimer?.Start();
+                }
+                else
+                {
+                    _liveProgressTimer?.Stop();
+                    TimelineSlider.Value = 0;
+                    TimelineSlider.Maximum = 1; 
+                    CurrentTimeText.Text = "LIVE";
+                    TotalTimeText.Text = "";
+                }
 
-           LoadingOverlay.Visibility = Visibility.Visible;
-            LoadingText.Text = "Connecting...";
-            
-           if (currentAiring != null && currentAiring.Duration.HasValue)
-            {
-                TimelineSlider.Maximum = currentAiring.Duration.Value * 1000;
-                TotalTimeText.Text = TimeSpan.FromSeconds(currentAiring.Duration.Value).ToString(@"h\:mm\:ss");
-                _liveProgressTimer?.Start();
-            }
-            else
-            {
-                _liveProgressTimer?.Stop();
-                TimelineSlider.Value = 0;
-                TimelineSlider.Maximum = 1; 
-                CurrentTimeText.Text = "LIVE";
-                TotalTimeText.Text = "";
-            }
+                LogDebug("PlayCurrentChannel: Starting 15s TuneTimeoutTimer and calling _mediaPlayer.Play().");
+                _tuneTimeoutTimer?.Stop();
+                _tuneTimeoutTimer?.Start();
 
-            using (media)
-            {
                 _mediaPlayer.Play(media);
+                LogDebug("PlayCurrentChannel: _mediaPlayer.Play() completed.");
+            }
+            catch (Exception ex)
+            {
+                LogDebug($"FATAL C# ERROR in PlayCurrentChannel: {ex.Message}\n{ex.StackTrace}");
+                MessageBox.Show($"Failed to load channel: {ex.Message}", "Application Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                this.Close();
             }
         }
 
@@ -971,23 +1063,34 @@ private void CastButton_Click(object sender, RoutedEventArgs e)
 
         private void PlayerWindow_Closed(object? sender, EventArgs e)
         {
+            LogDebug("PlayerWindow_Closed: Cleaning up resources.");
             System.Windows.Input.Mouse.OverrideCursor = null;
+            Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
             
             _uiTimer?.Stop();
             _statsTimer?.Stop();
+            _tuneTimeoutTimer?.Stop();
+            _liveProgressTimer?.Stop();
             
             if (_mediaPlayer != null)
             {
                 _mediaPlayer.TimeChanged -= MediaPlayer_TimeChanged;
                 _mediaPlayer.LengthChanged -= MediaPlayer_LengthChanged; 
-                _mediaPlayer.Stop();
+                _mediaPlayer.EncounteredError -= MediaPlayer_EncounteredError;
+
+                if (_mediaPlayer.IsPlaying) 
+                {
+                    LogDebug("PlayerWindow_Closed: Stopping _mediaPlayer.");
+                    _mediaPlayer.Stop();
+                }
+                LogDebug("PlayerWindow_Closed: Disposing _mediaPlayer.");
                 _mediaPlayer.Dispose();
-                _liveProgressTimer?.Stop();
             }
         }
         
         private void MediaPlayer_EndReached(object? sender, EventArgs e)
         {
+            LogDebug("VLC CALLBACK: MediaPlayer_EndReached Fired!");
             if (_isMovieMode)
             {
                 Dispatcher.Invoke(() => this.Close());
@@ -1021,6 +1124,7 @@ private void CastButton_Click(object sender, RoutedEventArgs e)
                 {
                     Dispatcher.Invoke(() =>
                     {
+                        LogDebug($"Error transitioning to next program: {ex.Message}");
                         MessageBox.Show($"Failed to load the next show: {ex.Message}");
                         this.Close();
                     });

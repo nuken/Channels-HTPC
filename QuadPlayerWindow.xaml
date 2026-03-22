@@ -30,7 +30,7 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <Border Background="#88000000" Visibility="{Binding Visibility, ElementName=ControlBar}" Grid.RowSpan="2" IsHitTestVisible="False"/>
+            <Border Background="#4D000000" Visibility="{Binding Visibility, ElementName=ControlBar}" Grid.RowSpan="2" IsHitTestVisible="False"/>
 
             <Border x:Name="ControlBar" Grid.Row="1" Padding="20" Visibility="Collapsed">
                 <Border.Background>
