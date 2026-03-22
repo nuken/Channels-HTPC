@@ -15,12 +15,13 @@ namespace FeralCode
     public partial class QuadPlayerWindow : Window
     {
         // --- NEW: Toggle this to false to disable logging! ---
-        private bool _enableLogging = false;
+        private bool _enableLogging = true;
 
         private LibVLC _libVLC;
         private LibVLCSharp.Shared.MediaPlayer[] _players = new LibVLCSharp.Shared.MediaPlayer[4];
         private LibVLCSharp.WPF.VideoView[] _views;
         private Border[] _borders;
+		private TextBlock[] _errorTexts;
         private int _activeIndex = 0;
         private int _totalActive = 0;
         
@@ -72,6 +73,7 @@ namespace FeralCode
 
             _views = new[] { View0, View1, View2, View3 };
             _borders = new[] { Border0, Border1, Border2, Border3 };
+			_errorTexts = new[] { ErrorText0, ErrorText1, ErrorText2, ErrorText3 };
 
             _audioTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
             _audioTimer.Tick += (s, e) => 
@@ -101,15 +103,37 @@ namespace FeralCode
                         }
                     }
 
-                    string streamUrl = $"{baseUrl.TrimEnd('/')}/devices/ANY/channels/{channels[playerIndex].Number}/hls/master.m3u8?vcodec=copy&acodec={audioCodec}";
+                    string streamUrl = "";
+
+                    // If it's a virtual channel, we must use HLS. Otherwise, use the raw TS stream to prevent Timestamp Deadlocks!
+                    if (channels[playerIndex].Id != null && channels[playerIndex].Id!.StartsWith("virtual", StringComparison.OrdinalIgnoreCase))
+                    {
+                        streamUrl = $"{baseUrl.TrimEnd('/')}/devices/ANY/channels/{channels[playerIndex].Number}/hls/master.m3u8?vcodec=copy&acodec={audioCodec}";
+                    }
+                    else
+                    {
+                        streamUrl = $"{baseUrl.TrimEnd('/')}/devices/ANY/channels/{channels[playerIndex].Number}/stream.mpg?format=ts&vcodec=copy&acodec={audioCodec}";
+                    }
                     
                     _players[playerIndex].EncounteredError += (sender, args) => 
                     {
                         LogDebug($"VLC CALLBACK: QuadPlayer {playerIndex} EncounteredError.");
+                        
+                        // --- SHOW THE ERROR TEXT ---
+                        Application.Current.Dispatcher.InvokeAsync(() => 
+                        {
+                            _errorTexts[playerIndex].Visibility = Visibility.Visible;
+                        });
                     };
 
                     _players[playerIndex].Playing += async (sender, args) => 
                     {
+                        // --- HIDE THE ERROR TEXT IF IT SUCCESSFULLY PLAYS ---
+                        Application.Current.Dispatcher.InvokeAsync(() => 
+                        {
+                            _errorTexts[playerIndex].Visibility = Visibility.Collapsed;
+                        });
+
                         await Task.Delay(1000); 
                         Application.Current.Dispatcher.Invoke(() => ApplyAudioFocus());
                         
@@ -117,16 +141,27 @@ namespace FeralCode
                         Application.Current.Dispatcher.Invoke(() => ApplyAudioFocus());
                     };
                     
-                    // --- THE FIX: Clean Native Loading ---
-                    Task.Run(() => 
+                  // --- THE FIX: Clean Native Loading & STAGGERED TUNING ---
+                    Task.Run(async () => 
                     {
                         try
                         {
+                            // Stagger each tuner by 1.5 seconds to prevent hardware collisions!
+                            if (playerIndex > 0)
+                            {
+                                await Task.Delay(playerIndex * 1500);
+                            }
+
                             var media = new Media(_libVLC, new Uri(streamUrl));
                             
-                            media.AddOption(":network-caching=2000");
-                            media.AddOption(":live-caching=2000");
+                            // Bump caching to 5 seconds to survive massive OTA signal gaps
+                            media.AddOption(":network-caching=5000");
+                            media.AddOption(":live-caching=5000");
                             media.AddOption(":avcodec-hw=none");
+                            
+                            // --- THE MAGIC BULLET FOR MISSING CLOCKS ---
+                            // Force VLC to draw the video frames even if the timestamps are broken!
+                            media.AddOption(":no-drop-late-frames");
                             
                             // Prevent corrupted subtitles from natively crashing VLC
                             media.AddOption(":no-spu");

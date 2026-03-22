@@ -14,7 +14,7 @@ namespace FeralCode
     public partial class PlayerWindow : Window
     {
         // --- NEW: Toggle this to false to disable logging! ---
-        private bool _enableLogging = false;
+        private bool _enableLogging = true;
 
         private MediaPlayer _mediaPlayer;
         private string _baseUrl = ""; 
