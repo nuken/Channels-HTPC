@@ -87,11 +87,37 @@ namespace FeralCode
                 "--file-caching=3000"
             );
 
+            // --- NEW: The Public Release Spam Filter ---
+            // A list of harmless native VLC errors/warnings to hide from end-users
+            string[] ignoredVlcMessages = new[]
+            {
+                "SetThumbNailClip failed",           // Harmless D3D11 error caused by WindowStyle="None"
+                "unsupported control query",         // Harmless WPF integration warning
+                "too low audio sample frequency",    // Normal during initial tuner lock
+                "failed to create audio output",     // Normal during initial tuner lock
+                "non-dated audio buffer received",   // Normal stream transition warning
+                "Timestamp conversion failed",       // Harmless missing clock warning
+                "Could not convert timestamp",       // Harmless missing clock warning
+				"buffer deadlock prevented",         // Harmless auto-recovery from weak signal
+				"buffer too late",                   // Harmless auto-recovery from weak signal
+                "mpeg4audio: AAC channels",           // Harmless audio format notice
+				"No PCR received",                   // Harmless missing clock warning
+                "Broken stream",                     // Harmless clock delay workaround
+                "waiting for SPS/PPS"                // Harmless waiting for H.264 keyframe
+            };
+           
             SharedLibVLC.Log += (sender, e) => 
             {
                 if (e.Level == LogLevel.Warning || e.Level == LogLevel.Error || e.Level == LogLevel.Notice)
                 {
-                    AppLogger.Log($"[VLC ENGINE] [{e.Level}] {e.Module}: {e.Message}");
+                    // Check if the VLC message contains any of our ignored phrases
+                    bool isIgnored = ignoredVlcMessages.Any(ignored => 
+                        e.Message.Contains(ignored, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (!isIgnored)
+                    {
+                        AppLogger.Log($"[VLC ENGINE] [{e.Level}] {e.Module}: {e.Message}");
+                    }
                 }
             };
 
