@@ -24,6 +24,8 @@
     <Resource Include="Assets\splash.png" />
     <EmbeddedResource Include="wwwroot\**\*" />
     
+	<Resource Include="Assets\RubikDirt-Regular.ttf" />
+	
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="LibVLCSharp.WPF" Version="3.9.6" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23" />

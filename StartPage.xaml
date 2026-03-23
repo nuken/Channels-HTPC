@@ -38,11 +38,11 @@
             
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,50">
                 
-                <Image Source="pack://application:,,,/Assets/splash.png" Width="120" Height="120" Margin="0,0,20,0" RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center"/>
+                <Image Source="pack://application:,,,/Assets/splash.png" Width="100" Height="141" Margin="0,0,20,0" RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center"/>
                                       
-                <TextBlock Text="FERAL HTPC" FontSize="62" FontWeight="Light" 
+                <TextBlock Text="FERAL HTPC" FontSize="62" FontWeight="400" 
                            Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"
-                           FontFamily="Segoe UI Light"/>
+                           FontFamily="pack://application:,,,/Assets/#Rubik Dirt"/>
                 
             </StackPanel>
             
