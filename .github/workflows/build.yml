@@ -32,4 +32,4 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: Feral-HTPC-Installer
-        path: Output/Feral_HTPC_Alpha_Setup.exe
+        path: Output/Feral_HTPC_Beta_Setup.exe
