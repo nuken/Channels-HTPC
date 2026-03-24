@@ -40,13 +40,20 @@ namespace FeralCode
 			StickyHeadersCheckBox.IsChecked = _settings.StickyGuideHeaders;
 
             // --- NEW: Display the formatted Mobile Remote URL ---
-            string localIp = GetLocalIPAddress();
-            LocalRemoteUrlBox.Text = $"http://{localIp}:{_settings.WebServerPort}";
-			string localVersion = "1.0.0-beta"; // Fallback
+            string localVersion = "1.0.0-beta"; // Fallback
             try
             {
                 var versionAttr = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>();
-                if (versionAttr != null) localVersion = versionAttr.InformationalVersion;
+                if (versionAttr != null) 
+                {
+                    localVersion = versionAttr.InformationalVersion;
+                    
+                    // Strip the Git commit hash / build metadata appended by .NET
+                    if (localVersion.Contains('+'))
+                    {
+                        localVersion = localVersion.Split('+')[0];
+                    }
+                }
             }
             catch { }
             
