@@ -67,7 +67,7 @@ namespace FeralCode
                 {
                     // WARNING: Replace this URL with the RAW link to your version.txt on GitHub or your server!
                     // The ?t= trick prevents aggressive caching so it always gets the latest file.
-                    string repoUrl = $"https://raw.githubusercontent.com/nuken/Feral-HTPC/refs/heads/main/version.txt?t={DateTime.Now.Ticks}";
+                    string repoUrl = $"https://raw.githubusercontent.com/nuken/Feral-HTPC/refs/heads/main/version.txt";
                     
                     string remoteVersion = await client.GetStringAsync(repoUrl);
                     remoteVersion = remoteVersion.Trim();
