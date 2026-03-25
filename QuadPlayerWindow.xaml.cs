@@ -108,16 +108,34 @@ namespace FeralCode
                     }
 
                     string streamUrl = "";
+int offsetSeconds = 0;
 
-                    // If it's a virtual channel, we must use HLS. Otherwise, use the raw TS stream to prevent Timestamp Deadlocks!
-                    if (channels[playerIndex].Id != null && channels[playerIndex].Id!.StartsWith("virtual", StringComparison.OrdinalIgnoreCase))
-                    {
-                        streamUrl = $"{baseUrl.TrimEnd('/')}/devices/ANY/channels/{channels[playerIndex].Number}/hls/master.m3u8?vcodec=copy&acodec={audioCodec}";
-                    }
-                    else
-                    {
-                        streamUrl = $"{baseUrl.TrimEnd('/')}/devices/ANY/channels/{channels[playerIndex].Number}/stream.mpg?format=ts&vcodec=copy&acodec={audioCodec}";
-                    }
+if (channels[playerIndex].Id != null && channels[playerIndex].Id!.StartsWith("virtual", StringComparison.OrdinalIgnoreCase))
+{
+    var currentAiring = channels[playerIndex].CurrentAirings?.FirstOrDefault(a => a.IsAiringNow);
+    
+    if (currentAiring != null && !string.IsNullOrWhiteSpace(currentAiring.Source))
+    {
+        // Extract the raw file ID from the source path
+        string fileId = currentAiring.Source.Split('/').Last(); 
+        streamUrl = $"{baseUrl.TrimEnd('/')}/dvr/files/{fileId}/hls/master.m3u8";
+        
+        // Calculate how far into the episode we should jump to simulate "Live TV"
+        offsetSeconds = (int)(DateTime.Now - currentAiring.StartTime).TotalSeconds;
+        if (offsetSeconds < 0) offsetSeconds = 0;
+        
+        LogDebug($"QuadPlayer: Virtual CH {channels[playerIndex].Number} -> File {fileId} @ {offsetSeconds}s");
+    }
+    else
+    {
+        LogDebug("QuadPlayer: Virtual channel missing guide data. Fallback to default HLS.");
+        streamUrl = $"{baseUrl.TrimEnd('/')}/devices/ANY/channels/{channels[playerIndex].Number}/hls/master.m3u8?vcodec=copy&acodec={audioCodec}";
+    }
+}
+else
+{
+    streamUrl = $"{baseUrl.TrimEnd('/')}/devices/ANY/channels/{channels[playerIndex].Number}/stream.mpg?format=ts&vcodec=copy&acodec={audioCodec}";
+}
                     
                     _players[playerIndex].EncounteredError += (sender, args) => 
                     {
@@ -157,22 +175,28 @@ namespace FeralCode
                             }
 
                             var media = new Media(_libVLC, new Uri(streamUrl));
-                            
-                            // Bump caching to 5 seconds to survive massive OTA signal gaps
-                            media.AddOption(":network-caching=5000");
-                            media.AddOption(":live-caching=5000");
-                            media.AddOption(":avcodec-hw=none");
-                            
-                            // --- THE MAGIC BULLET FOR MISSING CLOCKS ---
-                            // Force VLC to draw the video frames even if the timestamps are broken!
-                            media.AddOption(":no-drop-late-frames");
-                            
-                            // Prevent corrupted subtitles from natively crashing VLC
-                            media.AddOption(":no-spu");
-                            media.AddOption(":no-sub-autodetect-file");
 
-                            // DO NOT use a 'using' statement here! Let VLC hold the reference.
-                            _players[playerIndex].Play(media);
+// Bump caching to 5 seconds to survive massive OTA signal gaps
+media.AddOption(":network-caching=5000");
+media.AddOption(":live-caching=5000");
+media.AddOption(":avcodec-hw=none");
+
+// --- THE MAGIC BULLET FOR MISSING CLOCKS ---
+// Force VLC to draw the video frames even if the timestamps are broken!
+media.AddOption(":no-drop-late-frames");
+
+// Prevent corrupted subtitles from natively crashing VLC
+media.AddOption(":no-spu");
+media.AddOption(":no-sub-autodetect-file");
+
+// Apply the jump-in time for Virtual Channels
+if (offsetSeconds > 0)
+{
+    media.AddOption($":start-time={offsetSeconds}");
+}
+
+// DO NOT use a 'using' statement here! Let VLC hold the reference.
+_players[playerIndex].Play(media);
                         }
                         catch (Exception ex)
                         {
