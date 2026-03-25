@@ -22,6 +22,10 @@
     
     <Resource Include="Assets\appicon.ico" />
     <Resource Include="Assets\splash.png" />
+	<Resource Include="Assets\youtube.png" />
+	<Resource Include="Assets\disneyplus.png" />
+	<Resource Include="Assets\netflix.png" /> 
+	<Resource Include="Assets\custom.png" />
     <EmbeddedResource Include="wwwroot\**\*" />
     
 	<Resource Include="Assets\RubikDirt-Regular.ttf" />

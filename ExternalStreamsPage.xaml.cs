@@ -40,58 +40,98 @@ namespace FeralCode
         }
 
         private void LoadStreams()
+{
+    StreamsWrapPanel.Children.Clear();
+    var settings = SettingsManager.Load();
+
+    if (settings.ExternalStreams == null || settings.ExternalStreams.Count == 0)
+    {
+        EmptyText.Visibility = Visibility.Visible;
+        return;
+    }
+
+    EmptyText.Visibility = Visibility.Collapsed;
+
+    // A clean, uniform dark blue for all buttons (you can tweak these RGB values to your liking!)
+    var uniformBlue = new SolidColorBrush(Color.FromRgb(30, 60, 110));
+
+    foreach (var stream in settings.ExternalStreams)
+    {
+        var btn = new Button
         {
-            StreamsWrapPanel.Children.Clear();
-            var settings = SettingsManager.Load();
+            Style = (Style)FindResource("AppButton"),
+            Tag = stream,
+            Background = uniformBlue
+        };
 
-            if (settings.ExternalStreams == null || settings.ExternalStreams.Count == 0)
-            {
-                EmptyText.Visibility = Visibility.Visible;
-                return;
-            }
+        var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
 
-            EmptyText.Visibility = Visibility.Collapsed;
+        // 1. Load and Add the Service Icon
+        var icon = new Image
+        {
+            Source = GetServiceIcon(stream.Service),
+            Width = 60,
+            Height = 60,
+            Margin = new Thickness(0, 0, 0, 12),
+            Stretch = Stretch.Uniform
+        };
 
-            foreach (var stream in settings.ExternalStreams)
-            {
-                var btn = new Button
-                {
-                    Style = (Style)FindResource("AppButton"),
-                    Tag = stream
-                };
+        // 2. Add the User's Custom Title
+        var titleText = new TextBlock 
+        { 
+            Text = stream.Title, 
+            FontSize = 18, 
+            FontWeight = FontWeights.Bold, 
+            TextWrapping = TextWrapping.Wrap, 
+            TextAlignment = TextAlignment.Center, 
+            Foreground = Brushes.White 
+        };
 
-                btn.Background = GetBrandColor(stream.Service);
-
-                var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-                
-                var serviceText = new TextBlock { Text = stream.Service.ToUpper(), FontSize = 12, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromArgb(150, 255, 255, 255)), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0,0,0,5) };
-                var titleText = new TextBlock { Text = stream.Title, FontSize = 22, FontWeight = FontWeights.Black, TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, Foreground = Brushes.White };
-
-                stack.Children.Add(serviceText);
-                stack.Children.Add(titleText);
-
-                btn.Content = stack;
-                
-                btn.Click += Stream_Click;
-
-                StreamsWrapPanel.Children.Add(btn);
-            }
-
-            if (StreamsWrapPanel.Children.Count > 0)
-                ((UIElement)StreamsWrapPanel.Children[0]).Focus();
+        // Safety check: If the icon loads, show it. If you forgot to add the image file, it falls back to text.
+        if (icon.Source != null)
+        {
+            stack.Children.Add(icon);
+        }
+        else
+        {
+            var fallbackText = new TextBlock { Text = stream.Service.ToUpper(), FontSize = 12, FontWeight = FontWeights.Bold, Foreground = new SolidColorBrush(Color.FromArgb(150, 255, 255, 255)), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0,0,0,5) };
+            stack.Children.Add(fallbackText);
         }
 
-        private SolidColorBrush GetBrandColor(string service)
-        {
-            return service.ToLower() switch
-            {
-                "netflix" => new SolidColorBrush(Color.FromRgb(229, 9, 20)),      
-                "disney+" => new SolidColorBrush(Color.FromRgb(17, 60, 207)),     
-                "youtube" => new SolidColorBrush(Color.FromRgb(255, 0, 0)),        
-                _ => new SolidColorBrush(Color.FromRgb(50, 50, 50))                
-            };
-        }
+        stack.Children.Add(titleText);
+        btn.Content = stack;
+        
+        btn.Click += Stream_Click;
 
+        StreamsWrapPanel.Children.Add(btn);
+    }
+
+    if (StreamsWrapPanel.Children.Count > 0)
+        ((UIElement)StreamsWrapPanel.Children[0]).Focus();
+}
+
+// --- NEW: Helper method to load images from the Assets folder ---
+private System.Windows.Media.ImageSource? GetServiceIcon(string service)
+{
+    // Maps the service dropdown name to your specific image files
+    string fileName = service.ToLower() switch
+    {
+        "netflix" => "netflix.png",
+        "disney+" => "disneyplus.png",
+        "youtube" => "youtube.png",
+        _ => "custom.png" // The fallback icon for Custom URIs
+    };
+
+    try
+    {
+        // Loads the image directly from the compiled app resources
+        return new System.Windows.Media.Imaging.BitmapImage(new Uri($"pack://application:,,,/Assets/{fileName}"));
+    }
+    catch
+    {
+        return null; 
+    }
+}
         private async void Stream_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is ExternalStream stream)
