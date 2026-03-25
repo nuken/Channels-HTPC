@@ -75,7 +75,7 @@
         <Border Grid.Row="0" Background="{DynamicResource PanelBackground}" CornerRadius="8" Padding="15" Margin="0,0,0,15">
             <Grid>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                    <Button Content="🏠 Start Page" Margin="0,0,20,0" Click="HomeButton_Click" Style="{StaticResource ModernButton}"/>
+                    <Button Content="🏠 Home" Margin="0,0,20,0" Click="HomeButton_Click" Style="{StaticResource ModernButton}"/>
                     <TextBlock Text="🎬 MOVIES LIBRARY" FontSize="18" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
                     <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="20,0,0,0" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource StatusSuccess}"/>
                 </StackPanel>

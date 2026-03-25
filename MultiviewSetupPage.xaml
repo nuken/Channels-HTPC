@@ -74,7 +74,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,20">
-            <Button Content="🏠 Back" Margin="0,0,20,0" Click="HomeButton_Click" FontSize="16" Padding="15,8" Background="{DynamicResource LiveBorder}" Foreground="White" BorderThickness="0" Cursor="Hand"/>
+            <Button Content="🏠 Home" Margin="0,0,20,0" Click="HomeButton_Click" FontSize="16" Padding="15,8" Background="{DynamicResource LiveBorder}" Foreground="White" BorderThickness="0" Cursor="Hand"/>
             <TextBlock Text="🪟 MULTIVIEW SETUP" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
         </StackPanel>
 

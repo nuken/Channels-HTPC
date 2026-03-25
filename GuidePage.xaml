@@ -108,7 +108,7 @@
         <Border Background="{DynamicResource PanelBackground}" CornerRadius="8" Padding="15" Margin="0,0,0,15">
             <StackPanel Orientation="Horizontal">
                 
-                <Button Content="🏠 Start Page" Margin="0,0,20,0" Click="HomeButton_Click" Style="{StaticResource ModernButton}"/>
+                <Button Content="🏠 Home" Margin="0,0,20,0" Click="HomeButton_Click" Style="{StaticResource ModernButton}"/>
                 
                 <TextBlock Text="SERVER:" Style="{StaticResource HeaderText}" Margin="0,0,10,0"/>
                 <ComboBox x:Name="ServerComboBox" Width="220" Height="34" Margin="0,0,15,0" IsEditable="True" 
@@ -123,10 +123,16 @@
                           FontSize="16" Padding="8,0" VerticalContentAlignment="Center" FocusVisualStyle="{StaticResource TvGuideFocusStyle}"/>
 
                 <TextBlock Text="SEARCH:" Style="{StaticResource HeaderText}" Margin="0,0,10,0" x:Name="SearchLabel" Visibility="Collapsed"/>
-                <Border Background="{DynamicResource AppBackground}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="5,0" Visibility="Collapsed" x:Name="SearchBorder">
-                    <TextBox x:Name="SearchTextBox" Width="140" Background="Transparent" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" 
-                             VerticalAlignment="Center" TextChanged="SearchTextBox_TextChanged" FontSize="14" FocusVisualStyle="{StaticResource TvGuideFocusStyle}"/>
-                </Border>
+
+<Border Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="5,0" Visibility="Collapsed" x:Name="SearchBorder">
+    
+    <TextBox x:Name="SearchTextBox" Width="140" Background="Transparent" 
+             Foreground="{DynamicResource TextPrimary}" 
+             CaretBrush="{DynamicResource TextPrimary}" 
+             BorderThickness="0" VerticalAlignment="Center" 
+             TextChanged="SearchTextBox_TextChanged" FontSize="14" 
+             FocusVisualStyle="{StaticResource TvGuideFocusStyle}"/>
+</Border>
 
                 <Button Content="☀ / 🌙" Margin="20,0,0,0" Padding="10,5" Click="ToggleTheme_Click" Style="{StaticResource ModernButton}" ToolTip="Toggle Light/Dark Theme"/>
                 <TextBlock x:Name="StatusText" VerticalAlignment="Center" Margin="20,0,0,0" FontSize="13" FontWeight="SemiBold"/>

@@ -153,7 +153,7 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <Button Content="🏠 Back" Margin="0,0,20,0" Click="HomeButton_Click" Style="{StaticResource ModernButton}"/>
+                    <Button Content="🏠 Home" Margin="0,0,20,0" Click="HomeButton_Click" Style="{StaticResource ModernButton}"/>
                     <TextBlock Text="⚙️ SYSTEM SETTINGS" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
                 </StackPanel>
 
