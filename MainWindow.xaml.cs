@@ -180,21 +180,23 @@ namespace FeralCode
         }
 
         private bool IsPortAvailable(int port)
+{
+    try
+    {
+        // Changed from IPAddress.Loopback to IPAddress.Any
+        // This ensures it checks all network interfaces, matching Kestrel's behavior.
+        using (var tcpListener = new TcpListener(IPAddress.Any, port))
         {
-            try
-            {
-                using (var tcpListener = new TcpListener(IPAddress.Loopback, port))
-                {
-                    tcpListener.Start();
-                    tcpListener.Stop();
-                    return true;
-                }
-            }
-            catch
-            {
-                return false;
-            }
+            tcpListener.Start();
+            tcpListener.Stop();
+            return true;
         }
+    }
+    catch
+    {
+        return false;
+    }
+}
 
         private int GetAvailablePort(int startPort = 12345, int endPort = 12445)
         {
