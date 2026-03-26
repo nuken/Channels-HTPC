@@ -36,13 +36,26 @@
     <Grid>
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
             
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,50">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,60">
                 
-                <Image Source="pack://application:,,,/Assets/splash.png" Width="173" Height="140" Margin="0,0,20,0" RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center"/>
+                <Image Source="pack://application:,,,/Assets/splash.png" 
+                       Width="120" Height="100" 
+                       Margin="0,0,25,0" 
+                       RenderOptions.BitmapScalingMode="HighQuality" 
+                       VerticalAlignment="Center">
+                    <Image.Effect>
+                        <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.4" Color="Black"/>
+                    </Image.Effect>
+                </Image>
                                       
-                <TextBlock Text="FERAL HTPC" FontSize="62" FontWeight="400" 
-                           Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"
-                           FontFamily="pack://application:,,,/Assets/#Rubik Dirt"/>
+                <TextBlock VerticalAlignment="Center" 
+                           FontFamily="Segoe UI, Montserrat, Sans-Serif" 
+                           TextOptions.TextFormattingMode="Display" 
+                           TextOptions.TextRenderingMode="ClearType">
+                    
+                    <Run Text="FERAL" FontSize="68" FontWeight="Black" Foreground="{DynamicResource TextPrimary}"/>
+                    <Run Text=" HTPC" FontSize="52" FontWeight="Light" Foreground="{DynamicResource TextSecondary}"/>
+                </TextBlock>
                 
             </StackPanel>
             
