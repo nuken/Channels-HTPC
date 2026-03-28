@@ -38,7 +38,11 @@ namespace FeralCode
             var api = new ChannelsApi();
             var rawChannels = await api.GetChannelsAsync(_baseUrl);
             
-            var cleanChannels = rawChannels.Where(c => !string.IsNullOrWhiteSpace(c.Name) && !string.IsNullOrWhiteSpace(c.Number)).ToList();
+            // --- THE FIX: Filter out Virtual Channels exactly like the Guide Page ---
+            var cleanChannels = rawChannels
+                .Where(c => !string.IsNullOrWhiteSpace(c.Name) && !string.IsNullOrWhiteSpace(c.Number)
+                         && (string.IsNullOrEmpty(c.Id) || !c.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase)))
+                .ToList();
 
             // --- Fetch 1 hour of guide data to get the currently airing shows ---
             try

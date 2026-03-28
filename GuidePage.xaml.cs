@@ -201,10 +201,9 @@ namespace FeralCode
             {
                 var rawChannels = await _api.GetChannelsAsync(baseUrl);
                 var cleanChannels = rawChannels
-                    .Where(c => !string.IsNullOrWhiteSpace(c.Name) && !string.IsNullOrWhiteSpace(c.Number)
-                             && (string.IsNullOrEmpty(c.Id) || !c.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase))) 
-                    .OrderBy(c => double.TryParse(c.Number, out double num) ? num : 99999)
-                    .ToList();
+    .Where(c => !string.IsNullOrWhiteSpace(c.Name) && !string.IsNullOrWhiteSpace(c.Number)) 
+    .OrderBy(c => double.TryParse(c.Number, out double num) ? num : 99999)
+    .ToList();
 
                 var stations = await _api.GetStationsAsync(baseUrl);
                 var stationLogoDict = stations

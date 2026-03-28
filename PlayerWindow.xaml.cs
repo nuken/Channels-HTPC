@@ -737,13 +737,14 @@ namespace FeralCode
         }
 
         private void TimelineSlider_PreviewMouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            if (_isMovieMode && _mediaPlayer.IsSeekable) 
-            {
-                _mediaPlayer.Time = (long)TimelineSlider.Value;
-            }
-            _isDraggingTimeline = false;
-        }
+{
+    // If it's a movie OR a bypassed HLS stream, use native seeking
+    if (_mediaPlayer.IsSeekable && (_isMovieMode || _liveTailStream == null)) 
+    {
+        _mediaPlayer.Time = (long)TimelineSlider.Value;
+    }
+    _isDraggingTimeline = false;
+}
 
         private void TimelineSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
@@ -799,16 +800,37 @@ namespace FeralCode
                     UiChannelLogo.Source = null; // Fallback gracefully
                 }
                 
+                var settings = SettingsManager.Load();
+
                 string streamUrl = "";
                 int offsetSeconds = 0;
 
-                if (currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase))
+                // 1. Identify the channel types immediately
+                bool isVirtualChannel = currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase);
+                
+                // --- THE FIX: Use the user-defined range instead of hardcoded 6000 ---
+                bool isPlutoOrCustom = false;
+                if (double.TryParse(currentChannel.Number.Trim(), out double checkNum))
+                {
+                    if (checkNum >= settings.TranscodeChannelRangeStart && checkNum <= settings.TranscodeChannelRangeEnd)
+                    {
+                        isPlutoOrCustom = true;
+                    }
+                }
+
+                // 2. Generate the appropriate URLs
+                if (isVirtualChannel)
                 {
                     LogDebug("PlayCurrentChannel: Virtual channel detected.");
                     if (currentAiring != null && !string.IsNullOrWhiteSpace(currentAiring.Source))
                     {
                         string fileId = currentAiring.Source.Split('/').Last(); 
-                        streamUrl = $"{_baseUrl}/dvr/files/{fileId}/hls/master.m3u8";
+                        
+                        // --- NEW: Read the setting and apply parameters dynamically ---
+                       
+                        string transcodeParams = settings.TranscodeVirtualChannels ? "?vcodec=h264&acodec=aac" : "";
+                        
+                        streamUrl = $"{_baseUrl}/dvr/files/{fileId}/hls/master.m3u8{transcodeParams}";
                         
                         offsetSeconds = (int)(DateTime.Now - currentAiring.StartTime).TotalSeconds;
                         if (offsetSeconds < 0) offsetSeconds = 0;
@@ -821,19 +843,24 @@ namespace FeralCode
                         return;
                     }
                 }
+                else if (isPlutoOrCustom)
+                {
+                    LogDebug("PlayCurrentChannel: Pluto/Custom channel detected. Using HLS endpoint.");
+                    // TEST: Use HLS instead of TS for Pluto channels to fix ad-break crashing
+                    streamUrl = $"{_baseUrl.TrimEnd('/')}/devices/ANY/channels/{currentChannel.Number.Trim()}/hls/master.m3u8?vcodec=h264&acodec=aac";
+                }
                 else
                 {
-                    var settings = SettingsManager.Load();
                     string audioCodec = "aac"; 
 
                     if (!settings.ForceAacAudio)
                     {
                         audioCodec = "copy";
-                        if (double.TryParse(currentChannel.Number, out double chNum) && chNum >= 100 && chNum < 200)
+                        if (double.TryParse(currentChannel.Number.Trim(), out double chNum) && chNum >= 100 && chNum < 200)
                             audioCodec = "aac";
                     }
 
-                    streamUrl = $"{_baseUrl.TrimEnd('/')}/devices/ANY/channels/{currentChannel.Number}/stream.mpg?format=ts&vcodec=copy&acodec={audioCodec}";
+                    streamUrl = $"{_baseUrl.TrimEnd('/')}/devices/ANY/channels/{currentChannel.Number.Trim()}/stream.mpg?format=ts&vcodec=copy&acodec={audioCodec}";
                 }
 
                 LogDebug($"PlayCurrentChannel: Final Stream URL: {streamUrl}");
@@ -842,44 +869,35 @@ namespace FeralCode
                 {
                     LogDebug("PlayCurrentChannel: Stopping previously playing _mediaPlayer.");
                     _mediaPlayer.Stop();
-                    _mediaPlayer.Media = null; // Detach it, but do NOT dispose it here
+                    _mediaPlayer.Media = null; 
                 }
 
-                // CleanupSpooler will now handle the safe, delayed 3-second disposal
                 CleanupSpooler();
 
-                bool isVirtualChannel = currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase);
-
-                if (_settings.EnableTimeShiftBuffer && !isVirtualChannel)
+                // 3. THE CRITICAL BYPASS: Ensure Pluto and Virtual channels NEVER touch the Time-Shift spooler!
+                if (_settings.EnableTimeShiftBuffer && !isVirtualChannel && !isPlutoOrCustom)
                 {
                     LogDebug("PlayCurrentChannel: Time-Shift enabled. Starting disk spooler.");
                     _spoolCts = new CancellationTokenSource();
                     _spoolFilePath = Path.Combine(Path.GetTempPath(), $"feral_spool_{Guid.NewGuid():N}.ts");
                     
-                    // 1. Fire and forget the background download task
                     _ = Task.Run(() => SpoolStreamAsync(streamUrl, _spoolFilePath, _spoolCts.Token));
 
                     LoadingOverlay.Visibility = Visibility.Visible;
                     LoadingText.Text = "Buffering Live Stream...";
 
-                    // 2. CRITICAL FIX: Wait until at least 64KB is written to disk so VLC can sniff the format
                     int waitAttempts = 0;
-                    while (waitAttempts < 50) // Max 5 seconds wait
+                    while (waitAttempts < 50) 
                     {
                         if (File.Exists(_spoolFilePath))
                         {
-                            try 
-                            { 
-                                if (new FileInfo(_spoolFilePath).Length > 64000) break; 
-                            } 
-                            catch { } // Briefly ignore OS file lock exceptions
+                            try { if (new FileInfo(_spoolFilePath).Length > 64000) break; } 
+                            catch { } 
                         }
                         await Task.Delay(100);
                         waitAttempts++;
                     }
 
-                    // 3. Wrap the file and keep references alive
-                    // FIX: Use the class-level variable here so the GC doesn't delete it
                     _liveTailStream = new LiveTailStream(_spoolFilePath, () => _isSpooling);
                     _currentMediaInput = new StreamMediaInput(_liveTailStream);
                     
@@ -889,7 +907,7 @@ namespace FeralCode
                 }
                 else
                 {
-                    if (isVirtualChannel) LogDebug("PlayCurrentChannel: Virtual Channel detected. Bypassing spooler.");
+                    if (isVirtualChannel || isPlutoOrCustom) LogDebug("PlayCurrentChannel: Virtual/Pluto Channel detected. Bypassing spooler.");
                     else LogDebug("PlayCurrentChannel: Time-Shift disabled. Streaming directly.");
                     
                     _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(streamUrl));
@@ -977,32 +995,32 @@ namespace FeralCode
         }
 
         private async void Rewind_Click(object sender, RoutedEventArgs e)
-        {
-            if (_isMovieMode && _mediaPlayer.IsSeekable) 
-            {
-                _mediaPlayer.Time -= 10000; 
-                ShowActionOverlay("⏪ -10s");
-            }
-            else if (!_isMovieMode && _liveTailStream != null)
-            {
-                ShowActionOverlay("⏪ -10s");
-                await PerformSafeSeek(-10.0);
-            }
-        }
+{
+    if (!_isMovieMode && _liveTailStream != null)
+    {
+        ShowActionOverlay("⏪ -10s");
+        await PerformSafeSeek(-10.0);
+    }
+    else if (_mediaPlayer.IsSeekable) 
+    {
+        _mediaPlayer.Time -= 10000; 
+        ShowActionOverlay("⏪ -10s");
+    }
+}
 
         private async void FastForward_Click(object sender, RoutedEventArgs e)
-        {
-            if (_isMovieMode && _mediaPlayer.IsSeekable) 
-            {
-                _mediaPlayer.Time += 30000;
-                ShowActionOverlay("⏩ +30s");
-            }
-            else if (!_isMovieMode && _liveTailStream != null)
-            {
-                ShowActionOverlay("⏩ +30s");
-                await PerformSafeSeek(30.0);
-            }
-        }
+{
+    if (!_isMovieMode && _liveTailStream != null)
+    {
+        ShowActionOverlay("⏩ +30s");
+        await PerformSafeSeek(30.0);
+    }
+    else if (_mediaPlayer.IsSeekable) 
+    {
+        _mediaPlayer.Time += 30000;
+        ShowActionOverlay("⏩ +30s");
+    }
+}
 
         private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
@@ -1200,30 +1218,35 @@ namespace FeralCode
         }
 
         public async void StopRemoteScrub()
-        {
-            if (!_isScrubbing) return;
-            
-            _remoteScrubTimer.Stop();
-            _isScrubbing = false;
-            
-            if (_isMovieMode && _mediaPlayer.IsSeekable) 
-            {
-                _mediaPlayer.Time = _scrubTargetTime;
-            }
-            else if (!_isMovieMode && _liveTailStream != null && _accumulatedScrubSeconds != 0)
-            {
-                // Execute ONE safe jump now that the user has let go of the button
-                await PerformSafeSeek(_accumulatedScrubSeconds);
-            }
+{
+    if (!_isScrubbing) return;
+    
+    _remoteScrubTimer.Stop();
+    _isScrubbing = false;
+    
+    if (_isMovieMode && _mediaPlayer.IsSeekable) 
+    {
+        _mediaPlayer.Time = _scrubTargetTime;
+    }
+    else if (!_isMovieMode && _liveTailStream != null && _accumulatedScrubSeconds != 0)
+    {
+        // Execute ONE safe jump now that the user has let go of the button
+        await PerformSafeSeek(_accumulatedScrubSeconds);
+    }
+    else if (!_isMovieMode && _mediaPlayer.IsSeekable && _liveTailStream == null && _accumulatedScrubSeconds != 0)
+    {
+        // Fallback native seeking for HLS streams (Virtual/Pluto)
+        _mediaPlayer.Time += (long)(_accumulatedScrubSeconds * 1000);
+    }
 
-            var fadeOut = new System.Windows.Media.Animation.DoubleAnimation
-            {
-                From = 1.0, To = 0.0,
-                Duration = new Duration(TimeSpan.FromSeconds(0.75)),
-                BeginTime = TimeSpan.FromSeconds(0.5)
-            };
-            ActionOverlayText.BeginAnimation(UIElement.OpacityProperty, fadeOut);
-        }
+    var fadeOut = new System.Windows.Media.Animation.DoubleAnimation
+    {
+        From = 1.0, To = 0.0,
+        Duration = new Duration(TimeSpan.FromSeconds(0.75)),
+        BeginTime = TimeSpan.FromSeconds(0.5)
+    };
+    ActionOverlayText.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+}
         
         private void Overlay_MouseRightButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
