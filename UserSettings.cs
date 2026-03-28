@@ -22,9 +22,6 @@ namespace FeralCode
         public string LastCollection { get; set; } = "All Channels";
 		public bool StartPlayersFullscreen { get; set; } = false;
 		public bool EnableTimeShiftBuffer { get; set; } = false;
-		public bool TranscodeVirtualChannels { get; set; } = false;
-		public int TranscodeChannelRangeStart { get; set; } = 6000;
-        public int TranscodeChannelRangeEnd { get; set; } = 99999;
 		public int GuideDurationHours { get; set; } = 4;
         public int WebServerPort { get; set; } = 0;
         public bool StickyGuideHeaders { get; set; } = true;

@@ -30,10 +30,9 @@ namespace FeralCode
             ShowExtendedMetadata.IsChecked = _settings.ShowExtendedMetadata;
             ForceAacCheckBox.IsChecked = _settings.ForceAacAudio;  
             TimeShiftCheckBox.IsChecked = _settings.EnableTimeShiftBuffer;            
-            TranscodeVirtualChannelsCheckBox.IsChecked = _settings.TranscodeVirtualChannels;
-            TranscodeRangeStartBox.Text = _settings.TranscodeChannelRangeStart.ToString();
-            TranscodeRangeEndBox.Text = _settings.TranscodeChannelRangeEnd.ToString();
+            // NEW: Load the Logging Setting
             EnableLoggingCheckBox.IsChecked = _settings.EnableDebugLogging;
+            // NEW: Load Guide Duration
             if (_settings.GuideDurationHours == 8) GuideDurationBox.SelectedIndex = 1;
             else if (_settings.GuideDurationHours == 12) GuideDurationBox.SelectedIndex = 2;
             else GuideDurationBox.SelectedIndex = 0; // Default to 4
@@ -339,15 +338,7 @@ namespace FeralCode
             _settings.IsLightTheme = LightModeCheckBox.IsChecked ?? false;
             _settings.StartPlayersFullscreen = FullscreenCheckBox.IsChecked ?? false;
 			_settings.EnableTimeShiftBuffer = TimeShiftCheckBox.IsChecked ?? false;
-            _settings.TranscodeVirtualChannels = TranscodeVirtualChannelsCheckBox.IsChecked ?? false;
-            
-            if (int.TryParse(TranscodeRangeStartBox.Text, out int startRange))
-                _settings.TranscodeChannelRangeStart = startRange;
-                
-            if (int.TryParse(TranscodeRangeEndBox.Text, out int endRange))
-                _settings.TranscodeChannelRangeEnd = endRange;
-			
-			_settings.StickyGuideHeaders = StickyHeadersCheckBox.IsChecked ?? true;
+            _settings.StickyGuideHeaders = StickyHeadersCheckBox.IsChecked ?? true;
             _settings.ShowExtendedMetadata = ShowExtendedMetadata.IsChecked ?? false;
             _settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? true;
             
