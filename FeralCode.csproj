@@ -35,12 +35,5 @@
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23" />
     <PackageReference Include="Zeroconf" Version="3.7.16" />
   </ItemGroup>
-  
-  <ItemGroup>
-    <Content Include="ffmpeg.exe">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-    </Content>
-  </ItemGroup>
-  
-</Project>
+
+  </Project>
