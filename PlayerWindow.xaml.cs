@@ -341,8 +341,9 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
             string ffmpegBindUrl = $"http://127.0.0.1:{dynamicPort}";
             string clientUrl = $"http://127.0.0.1:{dynamicPort}/stream.ts";
 
-            string appDir = AppDomain.CurrentDomain.BaseDirectory;
-            string localFfmpegPath = System.IO.Path.Combine(appDir, "ffmpeg.exe");
+            // --- FIX: Point to the new AppData directory instead of Program Files ---
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string localFfmpegPath = System.IO.Path.Combine(appData, "FeralHTPC", "ffmpeg", "ffmpeg.exe");
             
             // Fallback to global PATH if the auto-download somehow failed
             string targetExecutable = System.IO.File.Exists(localFfmpegPath) ? localFfmpegPath : "ffmpeg";
