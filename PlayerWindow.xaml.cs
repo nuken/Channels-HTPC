@@ -338,79 +338,83 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
             StopFfmpegProxy(); 
 
             int dynamicPort = GetAvailablePort();
-    string ffmpegBindUrl = $"http://127.0.0.1:{dynamicPort}";
-    string clientUrl = $"http://127.0.0.1:{dynamicPort}/stream.ts";
+            string ffmpegBindUrl = $"http://127.0.0.1:{dynamicPort}";
+            string clientUrl = $"http://127.0.0.1:{dynamicPort}/stream.ts";
 
-    // Format the seek parameter for FFmpeg if we are jumping into the middle of a show
-    string seekArg = offsetSeconds > 0 ? $"-ss {offsetSeconds}" : "";
+            string appDir = AppDomain.CurrentDomain.BaseDirectory;
+            string localFfmpegPath = System.IO.Path.Combine(appDir, "ffmpeg.exe");
+            
+            // Fallback to global PATH if the auto-download somehow failed
+            string targetExecutable = System.IO.File.Exists(localFfmpegPath) ? localFfmpegPath : "ffmpeg";
 
-    var startInfo = new System.Diagnostics.ProcessStartInfo
-    {
-        FileName = "ffmpeg.exe",
-        // FIX 1: -analyzeduration and -probesize forces FFmpeg to start instantly after 3MB/3secs
-        // FIX 2: -map 0:V:0? (Capital V) explicitly tells FFmpeg to IGNORE album art / poster images
-        // FIX 3: -max_muxing_queue_size 1024 prevents the transcoder from freezing when A/V is out of sync
-        Arguments = $"-nostdin {seekArg} -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags +genpts+igndts+discardcorrupt -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -c:v libx264 -preset ultrafast -c:a aac -ignore_unknown -copytb 1 -max_muxing_queue_size 1024 -f mpegts -listen 1 {ffmpegBindUrl}",
-        UseShellExecute = false,
-        CreateNoWindow = true,
-        RedirectStandardError = true
-    };
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = targetExecutable, 
+                
+                // CLEANED UP: We removed the aggressive -r 30 and -fps_mode commands. 
+                // This is now a lightweight, hyper-fast proxy strictly for normalizing 
+                // standard Live TV audio/video codecs.
+                Arguments = $"-nostdin -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags +genpts+igndts+discardcorrupt -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -c:v libx264 -preset ultrafast -tune zerolatency -c:a aac -ignore_unknown -max_muxing_queue_size 1024 -f mpegts -listen 1 {ffmpegBindUrl}",
+                
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardError = true
+            };
 
-    _ffmpegProcess = new System.Diagnostics.Process { StartInfo = startInfo };
-    _ffmpegProcess.EnableRaisingEvents = true; 
-    
-    _ffmpegProcess.ErrorDataReceived += (s, e) => 
-    {
-        if (!string.IsNullOrWhiteSpace(e.Data)) LogDebug($"[FFMPEG] {e.Data}");
-    };
+            _ffmpegProcess = new System.Diagnostics.Process { StartInfo = startInfo };
+            _ffmpegProcess.EnableRaisingEvents = true; 
+            
+            _ffmpegProcess.ErrorDataReceived += (s, e) => 
+            {
+                if (!string.IsNullOrWhiteSpace(e.Data)) LogDebug($"[FFMPEG] {e.Data}");
+            };
 
-    _ffmpegProcess.Exited += (s, e) =>
-    {
-        if (_ffmpegProcess != null && _ffmpegProcess.ExitCode != 0)
-        {
-            LogDebug($"[FFMPEG FATAL] Process exited unexpectedly with code: {_ffmpegProcess.ExitCode}");
+            _ffmpegProcess.Exited += (s, e) =>
+            {
+                if (_ffmpegProcess != null && _ffmpegProcess.ExitCode != 0)
+                {
+                    LogDebug($"[FFMPEG FATAL] Process exited unexpectedly with code: {_ffmpegProcess.ExitCode}");
+                }
+            };
+
+            _ffmpegProcess.Start();
+            _ffmpegProcess.BeginErrorReadLine(); 
+            
+            LogDebug($"Started FFmpeg local proxy. Waiting for port {dynamicPort} to bind...");
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            bool isBound = false;
+            
+            while (sw.ElapsedMilliseconds < 20000) 
+            {
+                if (_ffmpegProcess == null || _ffmpegProcess.HasExited)
+                {
+                    LogDebug("FFmpeg exited before port bind.");
+                    break;
+                }
+
+                var properties = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties();
+                var listeners = properties.GetActiveTcpListeners();
+                
+                if (listeners.Any(l => l.Port == dynamicPort))
+                {
+                    isBound = true;
+                    break;
+                }
+                await Task.Delay(250);
+            }
+
+            if (!isBound)
+            {
+                LogDebug("FFmpeg proxy failed to bind within the timeout period.");
+                StopFfmpegProxy();
+                return "";
+            }
+
+            LogDebug($"FFmpeg successfully bound to port {dynamicPort}. Proceeding to playback.");
+            return clientUrl;
         }
-    };
-
-    _ffmpegProcess.Start();
-    _ffmpegProcess.BeginErrorReadLine(); 
-    
-    LogDebug($"Started FFmpeg local proxy. Waiting for port {dynamicPort} to bind...");
-
-    var sw = System.Diagnostics.Stopwatch.StartNew();
-    bool isBound = false;
-    
-    // Increased to 20 seconds to give FFmpeg more time to probe messy HLS playlists
-    while (sw.ElapsedMilliseconds < 20000) 
-    {
-        if (_ffmpegProcess == null || _ffmpegProcess.HasExited)
-        {
-            LogDebug("FFmpeg exited before port bind.");
-            break;
-        }
-
-        var properties = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties();
-        var listeners = properties.GetActiveTcpListeners();
-        
-        if (listeners.Any(l => l.Port == dynamicPort))
-        {
-            isBound = true;
-            break;
-        }
-        await Task.Delay(250);
-    }
-
-    if (!isBound)
-    {
-        LogDebug("FFmpeg proxy failed to bind within the timeout period.");
-        StopFfmpegProxy();
-        return "";
-    }
-
-    LogDebug($"FFmpeg successfully bound to port {dynamicPort}. Proceeding to playback.");
-    return clientUrl;
-}
-
+		
         private void StopFfmpegProxy()
         {
             if (_ffmpegProcess != null && !_ffmpegProcess.HasExited)
@@ -922,10 +926,10 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
                     UiChannelLogo.Source = null; 
                 }
                 
-               string streamUrl = "";
+                string streamUrl = "";
                 int offsetSeconds = 0;
+                bool useProxy = _settings.ForceLocalTranscode; // Declared once here!
 
-                // --- RESTORED: Virtual Channel Logic ---
                 bool isVirtualChannel = currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase);
 
                 if (isVirtualChannel)
@@ -933,16 +937,22 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
                     LogDebug("PlayCurrentChannel: Virtual channel detected.");
                     if (currentAiring != null && !string.IsNullOrWhiteSpace(currentAiring.Source))
                     {
+                        // 1. Extract the exact file ID currently playing
                         string fileId = currentAiring.Source.Split('/').Last(); 
                         
-                        // CRITICAL FIX: Use stream.m3u8 instead of master.m3u8!
-                        // This bypasses Adaptive Bitrate Switching. FFmpeg will no longer switch 
-                        // resolutions mid-stream, which guarantees the CDVR remuxer won't restart 
-                        // and drop the video headers (which caused the Ms. Rachel crash).
+                        // 2. CRITICAL FIX: We MUST use the HLS playlist. 
+                        // Raw files over HTTP cannot be instantly seeked by VLC 
+                        // (which caused the EndReached loop). The M3U8 playlist allows 
+                        // VLC to instantly download the correct video segment for the offset!
                         streamUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{fileId}/hls/stream.m3u8";
                         
+                        // 3. Calculate exactly how many seconds into the episode we are
                         offsetSeconds = (int)(DateTime.Now - currentAiring.StartTime).TotalSeconds;
                         if (offsetSeconds < 0) offsetSeconds = 0;
+                        
+                        // 4. Force the proxy OFF. VLC natively handles M3U8 playlists perfectly 
+                        // without the "1000 frame duplicated" white-screen issues FFmpeg had.
+                        useProxy = false; 
                     }
                     else
                     {
@@ -954,7 +964,7 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
                 }
                 else
                 {
-                    // --- Standard Channel Logic ---
+                    // --- Standard Live TV Channels ---
                     var settings = SettingsManager.Load();
                     string audioCodec = "aac"; 
 
@@ -979,23 +989,23 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
 
                 CleanupSpooler();
 
-                bool useProxy = isVirtualChannel || _settings.ForceLocalTranscode;
+                // Removed the duplicate 'useProxy' declaration from here
                 string activeStreamUrl = streamUrl;
 
-if (useProxy)
-{
-    LogDebug("Routing stream through FFmpeg proxy to normalize formats.");
-    
-    // Pass the offsetSeconds to FFmpeg so it jumps to the correct time
-    activeStreamUrl = await StartFfmpegProxyAsync(streamUrl, offsetSeconds);
-    
-    if (string.IsNullOrEmpty(activeStreamUrl))
-    {
-        MessageBox.Show("Failed to start the proxy stream. The signal may be dead or took too long to load.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Error);
-        this.Close();
-        return;
-    }
-}
+                if (useProxy)
+                {
+                    LogDebug("Routing stream through FFmpeg proxy to normalize formats.");
+                    
+                    // Pass the offsetSeconds to FFmpeg so it jumps to the correct time
+                    activeStreamUrl = await StartFfmpegProxyAsync(streamUrl, offsetSeconds);
+                    
+                    if (string.IsNullOrEmpty(activeStreamUrl))
+                    {
+                        MessageBox.Show("Failed to start the proxy stream. The signal may be dead or took too long to load.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        this.Close();
+                        return;
+                    }
+                }
 
                 if (_settings.EnableTimeShiftBuffer && !isVirtualChannel)
                 {
@@ -1003,22 +1013,18 @@ if (useProxy)
                     _spoolCts = new CancellationTokenSource();
                     _spoolFilePath = Path.Combine(Path.GetTempPath(), $"feral_spool_{Guid.NewGuid():N}.ts");
                     
-                    // FIX: Pass activeStreamUrl to the spooler instead of streamUrl
                     _ = Task.Run(() => SpoolStreamAsync(activeStreamUrl, _spoolFilePath, _spoolCts.Token));
 
-                   LoadingOverlay.Visibility = Visibility.Visible;
+                    LoadingOverlay.Visibility = Visibility.Visible;
                     LoadingText.Text = "Buffering Live Stream...";
 
                     int waitAttempts = 0;
-                    // FIX 1: Increase wait loop to 150 attempts (15 seconds max)
                     while (waitAttempts < 150) 
                     {
                         if (File.Exists(_spoolFilePath))
                         {
                             try 
                             { 
-                                // FIX 2: Wait for a 2MB head start instead of 64KB. 
-                                // This prevents VLC from riding the edge of the file and dropping frames.
                                 if (new FileInfo(_spoolFilePath).Length > 2000000) break; 
                             } 
                             catch { } 
@@ -1027,12 +1033,11 @@ if (useProxy)
                         waitAttempts++;
                     }
 
-                   _liveTailStream = new LiveTailStream(_spoolFilePath, () => _isSpooling);
+                    _liveTailStream = new LiveTailStream(_spoolFilePath, () => _isSpooling);
                     _currentMediaInput = new StreamMediaInput(_liveTailStream);
                     
                     _currentMedia = new Media(MainWindow.SharedLibVLC, _currentMediaInput);
                     
-                    // FIX: imem streams require network/live caching, not file caching
                     _currentMedia.AddOption(":network-caching=5000"); 
                     _currentMedia.AddOption(":live-caching=5000");
                     _currentMedia.AddOption(":demux=ts");
@@ -1042,20 +1047,20 @@ if (useProxy)
                     if (isVirtualChannel) LogDebug("PlayCurrentChannel: Virtual Channel detected. Bypassing spooler.");
                     else LogDebug("PlayCurrentChannel: Time-Shift disabled. Streaming directly.");
                     
-                    // FIX: Pass activeStreamUrl directly to VLC
                     _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(activeStreamUrl));
                     _currentMedia.AddOption(":network-caching=2000");
                     _currentMedia.AddOption(":live-caching=2000");
-				}
+                }
 
                 _currentMedia.AddOption(":avcodec-hw=none");
                 _currentMedia.AddOption(":no-spu");
                 _currentMedia.AddOption(":no-sub-autodetect-file");
 
+                // Seek command for raw file playback (Virtual Channels)
                 if (offsetSeconds > 0 && !useProxy)
-{
-    _currentMedia.AddOption($":start-time={offsetSeconds}");
-}
+                {
+                    _currentMedia.AddOption($":start-time={offsetSeconds}");
+                }
 
                 LoadingOverlay.Visibility = Visibility.Visible;
                 LoadingText.Text = "Connecting...";
