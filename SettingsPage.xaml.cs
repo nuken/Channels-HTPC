@@ -30,7 +30,7 @@ namespace FeralCode
             ShowExtendedMetadata.IsChecked = _settings.ShowExtendedMetadata;
             ForceAacCheckBox.IsChecked = _settings.ForceAacAudio;  
             TimeShiftCheckBox.IsChecked = _settings.EnableTimeShiftBuffer;            
-            // NEW: Load the Logging Setting
+            ForceLocalTranscodeCheckBox.IsChecked = _settings.ForceLocalTranscode;
             EnableLoggingCheckBox.IsChecked = _settings.EnableDebugLogging;
             // NEW: Load Guide Duration
             if (_settings.GuideDurationHours == 8) GuideDurationBox.SelectedIndex = 1;
@@ -341,6 +341,7 @@ namespace FeralCode
             _settings.StickyGuideHeaders = StickyHeadersCheckBox.IsChecked ?? true;
             _settings.ShowExtendedMetadata = ShowExtendedMetadata.IsChecked ?? false;
             _settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? true;
+			_settings.ForceLocalTranscode = ForceLocalTranscodeCheckBox.IsChecked ?? false;
             
             if (GuideDurationBox.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out int parsedHours))
             {
@@ -382,6 +383,13 @@ namespace FeralCode
         {
             var settings = SettingsManager.Load();
             settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? true;
+            SettingsManager.Save(settings);
+        }
+		
+		private void ForceLocalTranscodeCheckBox_Click(object sender, RoutedEventArgs e)
+        {
+            var settings = SettingsManager.Load();
+            settings.ForceLocalTranscode = ForceLocalTranscodeCheckBox.IsChecked ?? false;
             SettingsManager.Save(settings);
         }
 

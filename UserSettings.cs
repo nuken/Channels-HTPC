@@ -27,6 +27,7 @@ namespace FeralCode
         public bool StickyGuideHeaders { get; set; } = true;
 		public bool ShowExtendedMetadata { get; set; } = false;
 		public bool ForceAacAudio { get; set; } = true;
+		public bool ForceLocalTranscode { get; set; } = false;
         public List<ExternalStream> ExternalStreams { get; set; } = new List<ExternalStream>();
 		public bool EnableDebugLogging { get; set; } = false;
     }

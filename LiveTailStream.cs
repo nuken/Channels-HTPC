@@ -47,37 +47,25 @@ namespace FeralCode
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            int totalBytesRead = 0;
-            int retries = 0;
-            int maxRetries = 100; 
-
-            while (totalBytesRead == 0 && retries < maxRetries)
+            while (true)
             {
-                long availableBytes = _fileStream.Length - _fileStream.Position;
-                long safeMargin = _isDownloadActive() ? 188000 : 0; 
-
-                if (availableBytes > safeMargin)
+                int bytesRead = _fileStream.Read(buffer, offset, count);
+                
+                if (bytesRead > 0)
                 {
-                    int bytesToRead = (int)Math.Min(count, availableBytes - safeMargin);
-                    if (bytesToRead > 0)
-                    {
-                        totalBytesRead = _fileStream.Read(buffer, offset, bytesToRead);
-                    }
+                    return bytesRead;
                 }
 
-                if (totalBytesRead == 0)
+                if (_isDownloadActive())
                 {
-                    if (!_isDownloadActive() && availableBytes == 0)
-                    {
-                        break; 
-                    }
-
-                    Thread.Sleep(50);
-                    retries++;
+                    // 20ms sleep is the perfect balance of low CPU usage and high bandwidth
+                    System.Threading.Thread.Sleep(20); 
+                }
+                else
+                {
+                    return 0; 
                 }
             }
-
-            return totalBytesRead;
         }
 
         // --- FIX: Tell VLC this is a live pipe, not a static file ---

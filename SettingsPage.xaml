@@ -224,7 +224,10 @@
                         <TextBlock Text="Playback Preferences" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,15"/>
                         <CheckBox x:Name="AutoSkipCheckBox" Content="Auto-Skip Commercials in Movies" Style="{StaticResource BigCheckBox}"/>
                         <CheckBox x:Name="FullscreenCheckBox" Content="Start Players in Fullscreen Mode" Style="{StaticResource BigCheckBox}"/>
-                        
+                        <CheckBox x:Name="ForceLocalTranscodeCheckBox" 
+                  Content="Force Local FFmpeg Transcode (Proxy All Channels)" 
+                  Style="{StaticResource BigCheckBox}" 
+                  Click="ForceLocalTranscodeCheckBox_Click"/>
                         <CheckBox x:Name="TimeShiftCheckBox" Content="Enable Live TV Time-Shifting (Pause/Rewind)" Style="{StaticResource BigCheckBox}"/>
                         <TextBlock Text="Downloads live TV to a temporary file on your disk, allowing you to pause, rewind, and fast-forward raw streams." Foreground="Gray" FontSize="12" Margin="40,-5,0,15" TextWrapping="Wrap" />
 

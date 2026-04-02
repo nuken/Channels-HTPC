@@ -32,7 +32,8 @@ namespace FeralCode
         private List<Channel>? _channels;
         private int _currentIndex;
         private DateTime _lastMouseMove = DateTime.MinValue;
-        
+		private System.Diagnostics.Process? _ffmpegProcess;
+                
         // --- Movie Mode Variables ---
         private bool _isMovieMode = false;
         private string _movieStreamUrl = "";
@@ -94,6 +95,15 @@ namespace FeralCode
             }
         }
 		
+		private int GetAvailablePort()
+        {
+            var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+            listener.Start();
+            int port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+            listener.Stop();
+            return port;
+        }
+		
 		private async Task SpoolStreamAsync(string streamUrl, string filePath, CancellationToken token)
         {
             try
@@ -104,19 +114,32 @@ namespace FeralCode
                 using var response = await client.GetAsync(streamUrl, HttpCompletionOption.ResponseHeadersRead, token);
                 response.EnsureSuccessStatusCode();
 
-                _isSpooling = true; // Set to true right as download starts
+                _isSpooling = true; 
                 using var networkStream = await response.Content.ReadAsStreamAsync();
-                using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
+                
+                // Restored to a sensible 64KB buffer
+                using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite, 65536, useAsync: true);
 
                 byte[] buffer = new byte[81920]; 
                 int bytesRead;
+                
+                var sw = System.Diagnostics.Stopwatch.StartNew();
 
                 while ((bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length, token)) > 0)
                 {
                     token.ThrowIfCancellationRequested();
                     await fileStream.WriteAsync(buffer, 0, bytesRead, token);
-                    await fileStream.FlushAsync(token); // CRITICAL FIX: Force OS to write to disk instantly
+                    
+                    // CRITICAL FIX: Flush every 200ms. This updates the NTFS file size 
+                    // so the reader thread can instantly see and play the new video bytes.
+                    if (sw.ElapsedMilliseconds > 200)
+                    {
+                        await fileStream.FlushAsync(token);
+                        sw.Restart();
+                    }
                 }
+                
+                await fileStream.FlushAsync(token);
             }
             catch (OperationCanceledException)
             {
@@ -134,43 +157,47 @@ namespace FeralCode
 
         private void CleanupSpooler()
         {
+            StopFfmpegProxy();
             _spoolCts?.Cancel();
-            _spoolCts?.Dispose();
-            _spoolCts = null;
 
             // Grab references to the active objects
             var oldInput = _currentMediaInput;
             var oldMedia = _currentMedia;
             var oldStream = _liveTailStream;
+            var oldCts = _spoolCts;
+            var tempFilePath = _spoolFilePath; // Capture local path
 
             // Clear the active pointers so the app can move on
             _currentMediaInput = null;
             _currentMedia = null;
             _liveTailStream = null;
+            _spoolCts = null;
 
-            // --- FIX: Safely spin down unmanaged threads ---
-            Task.Run(async () => 
+            // --- FIX: Safely spin down threads AND delete file in background ---
+            _ = Task.Run(async () => 
             {
-                // Give VLC's native C-threads plenty of time to detach from the delegates
+                // Give VLC's native C-threads plenty of time to detach from the file
                 await Task.Delay(3000); 
                 
                 oldMedia?.Dispose();
                 oldInput?.Dispose();
                 oldStream?.Dispose();
-            });
+                oldCts?.Dispose();
 
-            if (!string.IsNullOrEmpty(_spoolFilePath) && File.Exists(_spoolFilePath))
-            {
-                try
+                // NOW safely delete the temp file after all handles are released
+                if (!string.IsNullOrEmpty(tempFilePath) && File.Exists(tempFilePath))
                 {
-                    File.Delete(_spoolFilePath);
-                    LogDebug($"CleanupSpooler: Deleted temp file {_spoolFilePath}");
+                    try
+                    {
+                        File.Delete(tempFilePath);
+                        LogDebug($"CleanupSpooler: Deleted temp file {tempFilePath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogDebug($"CleanupSpooler: Could not delete temp file. {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    LogDebug($"CleanupSpooler: Could not delete temp file. {ex.Message}");
-                }
-            }
+            });
         }
 		
 		private async Task PerformSafeSeek(double seconds)
@@ -262,6 +289,7 @@ namespace FeralCode
                 this.Focus();
             };
             _settings = SettingsManager.Load();
+			_enableLogging = _settings.EnableDebugLogging;
             _baseUrl = baseUrl;
             _channels = channels;
             _currentIndex = startIndex;
@@ -299,6 +327,103 @@ namespace FeralCode
                 this.Topmost = true; 
                 _isFullscreen = true; 
             }
+        }
+		
+		// Update the method signature to accept the offset
+private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSeconds = 0)
+        {
+            // Give VLC's native thread 150ms to gracefully close the HTTP socket 
+            // before we forcefully kill the old FFmpeg process feeding it.
+            await Task.Delay(150);
+            StopFfmpegProxy(); 
+
+            int dynamicPort = GetAvailablePort();
+    string ffmpegBindUrl = $"http://127.0.0.1:{dynamicPort}";
+    string clientUrl = $"http://127.0.0.1:{dynamicPort}/stream.ts";
+
+    // Format the seek parameter for FFmpeg if we are jumping into the middle of a show
+    string seekArg = offsetSeconds > 0 ? $"-ss {offsetSeconds}" : "";
+
+    var startInfo = new System.Diagnostics.ProcessStartInfo
+    {
+        FileName = "ffmpeg.exe",
+        // FIX 1: -analyzeduration and -probesize forces FFmpeg to start instantly after 3MB/3secs
+        // FIX 2: -map 0:V:0? (Capital V) explicitly tells FFmpeg to IGNORE album art / poster images
+        // FIX 3: -max_muxing_queue_size 1024 prevents the transcoder from freezing when A/V is out of sync
+        Arguments = $"-nostdin {seekArg} -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags +genpts+igndts+discardcorrupt -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -c:v libx264 -preset ultrafast -c:a aac -ignore_unknown -copytb 1 -max_muxing_queue_size 1024 -f mpegts -listen 1 {ffmpegBindUrl}",
+        UseShellExecute = false,
+        CreateNoWindow = true,
+        RedirectStandardError = true
+    };
+
+    _ffmpegProcess = new System.Diagnostics.Process { StartInfo = startInfo };
+    _ffmpegProcess.EnableRaisingEvents = true; 
+    
+    _ffmpegProcess.ErrorDataReceived += (s, e) => 
+    {
+        if (!string.IsNullOrWhiteSpace(e.Data)) LogDebug($"[FFMPEG] {e.Data}");
+    };
+
+    _ffmpegProcess.Exited += (s, e) =>
+    {
+        if (_ffmpegProcess != null && _ffmpegProcess.ExitCode != 0)
+        {
+            LogDebug($"[FFMPEG FATAL] Process exited unexpectedly with code: {_ffmpegProcess.ExitCode}");
+        }
+    };
+
+    _ffmpegProcess.Start();
+    _ffmpegProcess.BeginErrorReadLine(); 
+    
+    LogDebug($"Started FFmpeg local proxy. Waiting for port {dynamicPort} to bind...");
+
+    var sw = System.Diagnostics.Stopwatch.StartNew();
+    bool isBound = false;
+    
+    // Increased to 20 seconds to give FFmpeg more time to probe messy HLS playlists
+    while (sw.ElapsedMilliseconds < 20000) 
+    {
+        if (_ffmpegProcess == null || _ffmpegProcess.HasExited)
+        {
+            LogDebug("FFmpeg exited before port bind.");
+            break;
+        }
+
+        var properties = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties();
+        var listeners = properties.GetActiveTcpListeners();
+        
+        if (listeners.Any(l => l.Port == dynamicPort))
+        {
+            isBound = true;
+            break;
+        }
+        await Task.Delay(250);
+    }
+
+    if (!isBound)
+    {
+        LogDebug("FFmpeg proxy failed to bind within the timeout period.");
+        StopFfmpegProxy();
+        return "";
+    }
+
+    LogDebug($"FFmpeg successfully bound to port {dynamicPort}. Proceeding to playback.");
+    return clientUrl;
+}
+
+        private void StopFfmpegProxy()
+        {
+            if (_ffmpegProcess != null && !_ffmpegProcess.HasExited)
+            {
+                try 
+                { 
+                    _ffmpegProcess.Kill(); 
+                    LogDebug("Killed active FFmpeg proxy process.");
+                } 
+                catch { }
+                _ffmpegProcess.Dispose();
+            }
+            _ffmpegProcess = null;
         }
         
         private void SystemEvents_DisplaySettingsChanged(object? sender, EventArgs e)
@@ -780,12 +905,10 @@ namespace FeralCode
                 UiChannelNumber.Text = $"CH {currentChannel.Number}";
                 UiShowTitle.Text = currentAiring != null ? currentAiring.DisplayTitle : currentChannel.Name;
                 
-                // --- THE FIX: Safely load the image ---
                 try
                 {
                     if (!string.IsNullOrWhiteSpace(currentChannel.ImageUrl))
                     {
-                        // Ignore case issues, ensure it's absolute, and catch 404s
                         UiChannelLogo.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(currentChannel.ImageUrl, UriKind.Absolute));
                     }
                     else
@@ -796,19 +919,27 @@ namespace FeralCode
                 catch (Exception imgEx)
                 {
                     LogDebug($"Warning: Failed to load logo for CH {currentChannel.Number}. Error: {imgEx.Message}");
-                    UiChannelLogo.Source = null; // Fallback gracefully
+                    UiChannelLogo.Source = null; 
                 }
                 
-                string streamUrl = "";
+               string streamUrl = "";
                 int offsetSeconds = 0;
 
-                if (currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase))
+                // --- RESTORED: Virtual Channel Logic ---
+                bool isVirtualChannel = currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase);
+
+                if (isVirtualChannel)
                 {
                     LogDebug("PlayCurrentChannel: Virtual channel detected.");
                     if (currentAiring != null && !string.IsNullOrWhiteSpace(currentAiring.Source))
                     {
                         string fileId = currentAiring.Source.Split('/').Last(); 
-                        streamUrl = $"{_baseUrl}/dvr/files/{fileId}/hls/master.m3u8";
+                        
+                        // CRITICAL FIX: Use stream.m3u8 instead of master.m3u8!
+                        // This bypasses Adaptive Bitrate Switching. FFmpeg will no longer switch 
+                        // resolutions mid-stream, which guarantees the CDVR remuxer won't restart 
+                        // and drop the video headers (which caused the Ms. Rachel crash).
+                        streamUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{fileId}/hls/stream.m3u8";
                         
                         offsetSeconds = (int)(DateTime.Now - currentAiring.StartTime).TotalSeconds;
                         if (offsetSeconds < 0) offsetSeconds = 0;
@@ -823,6 +954,7 @@ namespace FeralCode
                 }
                 else
                 {
+                    // --- Standard Channel Logic ---
                     var settings = SettingsManager.Load();
                     string audioCodec = "aac"; 
 
@@ -842,13 +974,28 @@ namespace FeralCode
                 {
                     LogDebug("PlayCurrentChannel: Stopping previously playing _mediaPlayer.");
                     _mediaPlayer.Stop();
-                    _mediaPlayer.Media = null; // Detach it, but do NOT dispose it here
+                    _mediaPlayer.Media = null; 
                 }
 
-                // CleanupSpooler will now handle the safe, delayed 3-second disposal
                 CleanupSpooler();
 
-                bool isVirtualChannel = currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase);
+                bool useProxy = isVirtualChannel || _settings.ForceLocalTranscode;
+                string activeStreamUrl = streamUrl;
+
+if (useProxy)
+{
+    LogDebug("Routing stream through FFmpeg proxy to normalize formats.");
+    
+    // Pass the offsetSeconds to FFmpeg so it jumps to the correct time
+    activeStreamUrl = await StartFfmpegProxyAsync(streamUrl, offsetSeconds);
+    
+    if (string.IsNullOrEmpty(activeStreamUrl))
+    {
+        MessageBox.Show("Failed to start the proxy stream. The signal may be dead or took too long to load.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        this.Close();
+        return;
+    }
+}
 
                 if (_settings.EnableTimeShiftBuffer && !isVirtualChannel)
                 {
@@ -856,35 +1003,38 @@ namespace FeralCode
                     _spoolCts = new CancellationTokenSource();
                     _spoolFilePath = Path.Combine(Path.GetTempPath(), $"feral_spool_{Guid.NewGuid():N}.ts");
                     
-                    // 1. Fire and forget the background download task
-                    _ = Task.Run(() => SpoolStreamAsync(streamUrl, _spoolFilePath, _spoolCts.Token));
+                    // FIX: Pass activeStreamUrl to the spooler instead of streamUrl
+                    _ = Task.Run(() => SpoolStreamAsync(activeStreamUrl, _spoolFilePath, _spoolCts.Token));
 
-                    LoadingOverlay.Visibility = Visibility.Visible;
+                   LoadingOverlay.Visibility = Visibility.Visible;
                     LoadingText.Text = "Buffering Live Stream...";
 
-                    // 2. CRITICAL FIX: Wait until at least 64KB is written to disk so VLC can sniff the format
                     int waitAttempts = 0;
-                    while (waitAttempts < 50) // Max 5 seconds wait
+                    // FIX 1: Increase wait loop to 150 attempts (15 seconds max)
+                    while (waitAttempts < 150) 
                     {
                         if (File.Exists(_spoolFilePath))
                         {
                             try 
                             { 
-                                if (new FileInfo(_spoolFilePath).Length > 64000) break; 
+                                // FIX 2: Wait for a 2MB head start instead of 64KB. 
+                                // This prevents VLC from riding the edge of the file and dropping frames.
+                                if (new FileInfo(_spoolFilePath).Length > 2000000) break; 
                             } 
-                            catch { } // Briefly ignore OS file lock exceptions
+                            catch { } 
                         }
                         await Task.Delay(100);
                         waitAttempts++;
                     }
 
-                    // 3. Wrap the file and keep references alive
-                    // FIX: Use the class-level variable here so the GC doesn't delete it
-                    _liveTailStream = new LiveTailStream(_spoolFilePath, () => _isSpooling);
+                   _liveTailStream = new LiveTailStream(_spoolFilePath, () => _isSpooling);
                     _currentMediaInput = new StreamMediaInput(_liveTailStream);
                     
                     _currentMedia = new Media(MainWindow.SharedLibVLC, _currentMediaInput);
-                    _currentMedia.AddOption(":file-caching=2000"); 
+                    
+                    // FIX: imem streams require network/live caching, not file caching
+                    _currentMedia.AddOption(":network-caching=5000"); 
+                    _currentMedia.AddOption(":live-caching=5000");
                     _currentMedia.AddOption(":demux=ts");
                 }
                 else
@@ -892,19 +1042,20 @@ namespace FeralCode
                     if (isVirtualChannel) LogDebug("PlayCurrentChannel: Virtual Channel detected. Bypassing spooler.");
                     else LogDebug("PlayCurrentChannel: Time-Shift disabled. Streaming directly.");
                     
-                    _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(streamUrl));
+                    // FIX: Pass activeStreamUrl directly to VLC
+                    _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(activeStreamUrl));
                     _currentMedia.AddOption(":network-caching=2000");
                     _currentMedia.AddOption(":live-caching=2000");
-                }
+				}
 
                 _currentMedia.AddOption(":avcodec-hw=none");
                 _currentMedia.AddOption(":no-spu");
                 _currentMedia.AddOption(":no-sub-autodetect-file");
 
-                if (offsetSeconds > 0)
-                {
-                    _currentMedia.AddOption($":start-time={offsetSeconds}");
-                }
+                if (offsetSeconds > 0 && !useProxy)
+{
+    _currentMedia.AddOption($":start-time={offsetSeconds}");
+}
 
                 LoadingOverlay.Visibility = Visibility.Visible;
                 LoadingText.Text = "Connecting...";
@@ -928,7 +1079,6 @@ namespace FeralCode
                 _tuneTimeoutTimer?.Stop();
                 _tuneTimeoutTimer?.Start();
 
-                // Play using our safely retained media object
                 _mediaPlayer.Play(_currentMedia);
                 LogDebug("PlayCurrentChannel: _mediaPlayer.Play() completed.");
             }
@@ -1296,7 +1446,7 @@ namespace FeralCode
             }
         }
 
-        private void PlayerWindow_Closed(object? sender, EventArgs e)
+        private async void PlayerWindow_Closed(object? sender, EventArgs e)
         {
             LogDebug("PlayerWindow_Closed: Cleaning up resources.");
             System.Windows.Input.Mouse.OverrideCursor = null;
@@ -1307,8 +1457,13 @@ namespace FeralCode
             _tuneTimeoutTimer?.Stop();
             _liveProgressTimer?.Stop();
             
+            var playerToDispose = _mediaPlayer;
+
             if (_mediaPlayer != null)
             {
+                _mediaPlayer.EndReached -= MediaPlayer_EndReached;
+                _mediaPlayer.Buffering -= MediaPlayer_Buffering;
+                _mediaPlayer.Playing -= MediaPlayer_Playing;
                 _mediaPlayer.TimeChanged -= MediaPlayer_TimeChanged;
                 _mediaPlayer.LengthChanged -= MediaPlayer_LengthChanged; 
                 _mediaPlayer.EncounteredError -= MediaPlayer_EncounteredError;
@@ -1318,12 +1473,24 @@ namespace FeralCode
                     LogDebug("PlayerWindow_Closed: Stopping _mediaPlayer.");
                     _mediaPlayer.Stop();
                 }
-                LogDebug("PlayerWindow_Closed: Disposing _mediaPlayer.");
-                _mediaPlayer.Dispose();
+
+                _mediaPlayer.Media = null;
+                VlcVideoView.MediaPlayer = null;
             }
-			CleanupSpooler();
+
+            // CRITICAL FIX: Give VLC 250ms to properly close its network sockets before we
+            // invoke CleanupSpooler (which aggressively terminates the FFmpeg process).
+            await Task.Delay(250);
+            CleanupSpooler();
+
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(4000); 
+                LogDebug("PlayerWindow_Closed: Safely disposing _mediaPlayer in background.");
+                playerToDispose?.Dispose();
+            });
         }
-        
+		
         private void MediaPlayer_EndReached(object? sender, EventArgs e)
         {
             LogDebug("VLC CALLBACK: MediaPlayer_EndReached Fired!");
