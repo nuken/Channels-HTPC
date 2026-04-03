@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -19,21 +19,22 @@
   <ItemGroup>
     <PackageReference Include="FontAwesome.Sharp" Version="6.6.0" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.5" />
+    <PackageReference Include="Xabe.FFmpeg.Downloader" Version="6.0.2" />
     
     <Resource Include="Assets\appicon.ico" />
     <Resource Include="Assets\splash.png" />
-	<Resource Include="Assets\youtube.png" />
-	<Resource Include="Assets\disneyplus.png" />
-	<Resource Include="Assets\netflix.png" /> 
-	<Resource Include="Assets\custom.png" />
+    <Resource Include="Assets\youtube.png" />
+    <Resource Include="Assets\disneyplus.png" />
+    <Resource Include="Assets\netflix.png" /> 
+    <Resource Include="Assets\custom.png" />
     <EmbeddedResource Include="wwwroot\**\*" />
     
-	<Resource Include="Assets\RubikDirt-Regular.ttf" />
-	
+    <Resource Include="Assets\RubikDirt-Regular.ttf" />
+    
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="LibVLCSharp.WPF" Version="3.9.6" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23" />
     <PackageReference Include="Zeroconf" Version="3.7.16" />
   </ItemGroup>
-
-  </Project>
+  
+</Project>
