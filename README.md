@@ -1,195 +1,75 @@
-# <img src="wwwroot/android-chrome-192x192.png" alt="FERAL Logo" width="100" height="100"> FERAL HTPC 
+# Feral HTPC (Version 1.0.0-beta)
 
-### \*\*\* Official Notice: \*\*\*
+Feral HTPC is a dedicated, feature-rich desktop client designed specifically for Home Theater PCs (HTPCs) running Windows. It interfaces directly with your Channels DVR server to provide a seamless, controller-friendly interface for Live TV, Movies, and external streaming services. 
 
-#### FERAL HTPC is not affiliated with *Fancy Bits, LLC* or *Channels DVR* and it is <ins>NOT</ins> an official Channels client.
+Powered by LibVLCSharp, Feral HTPC bypasses the limitations of standard web players by offering advanced A/V synchronization, raw stream handling, and robust network error recovery.
 
-Welcome to the Feral HTPC project. This application is a Windows client designed to interface with your Channels DVR server, acting as a complete living room media hub.
+## What is New in Beta
+The transition to the Beta phase introduces significant architectural improvements to playback stability and feature sets:
+* **Time-Shift Buffer:** Live TV can now be spooled to your local disk, allowing you to pause, rewind, and fast-forward live broadcasts.
+* **Local FFmpeg Proxy:** A lightweight, on-the-fly stream normalizer that fixes audio desync and frame-dropping issues caused by mixed-codec broadcasts.
+* **Virtual Channels Management:** You can now toggle the visibility of Virtual Channels in the guide to declutter your channel lineup.
+* **External App Deep Linking:** Directly launch and control external services like Netflix, Disney+, and YouTube natively from the Feral HTPC interface.
+* **Enhanced Web Remote:** The built-in mobile remote now supports full playback scrubbing, closed caption toggling, and multi-view quadrant control.
 
-### Alpha Release Notice
+## Core Features
+* **Custom Video Player:** Built on VLC's engine, optimized for MPEG-TS and HLS streams.
+* **Auto-Skip Commercials:** Automatically jumps over marked commercial breaks during movie playback.
+* **Quad Multi-view:** Watch up to four live streams simultaneously with dynamic audio switching.
+* **Smart Guide:** Customizable timeline with sticky headers and enhanced metadata support.
+* **Hardware Agnostic Audio:** Optional forced AAC transcoding for hardware setups that struggle with raw AC-3 OTA audio.
 
-Please note that this is currently an alpha release. There will be bugs and issues. While I am actively working on improvements and fixes, please do not expect all features to function perfectly or for the application to be feature-rich during this alpha release cycle.
+## Installation Process
 
-### Downloading and Installing
+1. **Prerequisites:** * A Windows 10/11 PC.
+   * An active Channels DVR server running on your local network or accessible via a remote VPN.
+2. **Download:** Navigate to the Releases section of this repository and download the latest `FeralInstaller.exe` file.
+   * *Important Browser Note:* We highly recommend using Google Chrome, Mozilla Firefox, or Brave for the download. Microsoft Edge has aggressive security filters that may incorrectly flag and block the download of new executable files.
+3. **Install:** Run the installer and follow the standard Windows setup prompts. 
+   * *Windows SmartScreen Popup:* Because Feral HTPC is a newly released, independently developed application, Windows SmartScreen will likely display a blue "Windows protected your PC" warning when you try to run the installer. To proceed with the installation, click **"More info"** and then select **"Run anyway"**.
+4. **First Run:** Launch Feral HTPC. The application will automatically attempt to discover your local Channels DVR server using network broadcasting. If it finds one, you will be connected immediately. If your server is on a different subnet, you can manually enter its IP address on the Settings page.
 
-1.  Navigate to the **Releases** section on the right side of this GitHub repository page.
-2.  Download the latest `.exe` installer file.
-3.  Locate the downloaded file on your computer and double-click to run it.
-4.  **Important:** Because this is an early unsigned release, Windows Defender SmartScreen will likely display a blue warning screen preventing it from starting. To bypass this, click the **More info** link on that screen, and then click the **Run anyway** button that appears. Follow the standard installation prompts from there.
+## Using the Settings Page
 
-### Keyboard Controls
+The Settings page is the central hub for customizing your Feral HTPC experience. You can access it from the main navigation menu.
 
-The Feral HTPC application is designed to be fully navigable via a keyboard or a media center D-Pad remote that maps to standard keyboard keys.
+**Servers and Remote**
+* **Mobile Remote Control URL:** Displays the exact web address you need to type into your smartphone's browser to access the remote control.
+* **Discovered Local DVR Servers:** Lists all automatically detected Channels DVR servers on your network.
+* **Manual DVR Server Address:** Allows you to input a custom IP address and port (e.g., `http://192.168.1.50:8089`) if network discovery fails.
 
-#### Global & Navigation
+**Preferences**
+* **Playback Preferences:** Enable auto-skipping for movie commercials, force the player to open in fullscreen, toggle the Live TV Time-Shift buffer, or force all live channels through the local FFmpeg proxy for maximum stability.
+* **Guide Preferences:** Set how many hours of guide data to load at once (4, 8, or 12 hours), toggle sticky time headers, and enable or disable the display of Virtual Channels.
+* **Audio Settings:** Force AAC Audio Transcoding. Leave this checked for maximum compatibility, or uncheck it if you have an A/V receiver and want raw AC-3 passthrough for OTA channels.
+* **Appearance:** Switch between Dark Theme (default) and Light Theme, and toggle enhanced metadata overlays.
 
-  * **Arrows (Up/Down/Left/Right):** Navigate menus and lists
-  * **Spacebar / Enter:** Select focused item
-  * **Escape / Backspace:** Go back to the previous screen
-  * **Home (BrowserHome):** Instantly return to the main Start Menu
+**External Apps**
+* Add custom deep links to launch external services directly from Feral HTPC. Select a service (Netflix, Disney+, YouTube, or Custom URI), provide a display title, and enter the specific deep link ID or URL.
 
-#### Single Video Playback
+## Using the Mobile Remote Control
 
-  * **Up Arrow:** Channel Up (Live TV only)
-  * **Down Arrow:** Channel Down (Live TV only)
-  * **Left Arrow:** Rewind 10 seconds (or hold to scrub back)
-  * **Right Arrow:** Fast Forward 30 seconds (or hold to scrub forward)
-  * **Spacebar / Enter:** Play / Pause
-  * **F / F11:** Toggle Fullscreen mode
-  * **M:** Minimize the player window
-  * **C:** Toggle Closed Captions / Subtitles
-  * **Escape / Backspace:** Exit Fullscreen (if active), or Close the player and return to the menu
-  * **Media Play/Pause Key:** Play / Pause
-  * **Media Stop Key:** Stop playback and return to the menu
-  * **Volume Up / Down Keys:** Adjust application volume
-  * **Mute Key:** Toggle volume mute
+Feral HTPC features a built-in web server that acts as a mobile remote control. It requires no app installation on your phone.
 
-#### Multiview (Quad Player) Playback
+**How to Connect:**
+1. Open the Settings page in Feral HTPC.
+2. Locate the "Mobile Remote Control URL" (it will look something like `http://192.168.1.X:12345`).
+3. Ensure your smartphone is connected to the same Wi-Fi network as your HTPC.
+4. Open your smartphone's web browser and navigate to that URL.
 
-  * **Arrows (Up/Down/Left/Right):** Shift the active audio focus between the 4 running streams
-  * **Double-Click or F / F11:** Toggle Fullscreen mode
-  * **M:** Minimize the Multiview window to the taskbar while keeping streams running
-  * **Escape / Backspace:** Exit Fullscreen (if active), or entirely close the Multiview player
-  * **Volume Up / Down / Mute Keys:** Adjust the volume of the *currently focused* stream quadrant
+**Remote Features:**
+* **Playback Controls:** Play, pause, mute, volume adjustment, and closed caption toggling.
+* **Scrubbing:** Hold the forward or backward buttons on the remote to visually scrub through the timeline of the currently playing media.
+* **Live Guide:** Browse your channel collections and tap any active show to immediately tune to it on the HTPC.
+* **Movies & Apps:** Browse your recorded movie library or launch your configured external streaming apps directly from your phone.
+* **Multi-view Control:** Set up a Quad-view display and easily switch which quadrant's audio is currently active.
 
-### Mobile Remote App
-
-This application features a built-in companion web server that acts as a mobile remote control. When the HTPC app is running, it hosts a local web interface that you can access from any smartphone, tablet, or secondary computer on your home network.
-
-You can find the exact URL to type into your mobile browser by navigating to the **Settings** page within the Feral HTPC Windows app.
-
-From the mobile remote interface, you can:
-
-  * **Browse Media:** Access your Live TV guide, channel collections, and recorded Movies/TV Shows natively.
-  * **Launch External Apps:** Quickly launch installed Windows streaming services (Netflix, Prime Video, Hulu, Disney+) directly from the app drawer.
-  * **Manage Multiview:** Remotely launch the Multiview setup screen, and use the 2x2 on-screen grid to instantly snap the TV's audio focus to the quadrant of your choice.
-  * **Control Playback:** Manage Play, Pause, Fast Forward, Rewind, Scrubbing, Closed Captions, and Picture-in-Picture.
-  * **PC Trackpad:** Use your phone screen as a wireless trackpad and mouse for the Windows desktop.
-  * **Global Window Control:** Minimize the HTPC, return to the Home menu, or close players from anywhere in the house.
-
-### Gallery
-
-<table>
-  <tr>
-    <td align="center">
-      <img src="./IMAGES/start.png" alt="Start Page" width="300" />
-      <br />
-      Start Page
-    </td>
-    <td align="center">
-      <img src="./IMAGES/live.png" alt="Live TV" width="300" />
-      <br />
-      Live TV
-    </td>
-    <td align="center">
-      <img src="./IMAGES/tv.png" alt="TV Player" width="300" />
-      <br />
-      TV Player
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="./IMAGES/movies1.png" alt="Movies" width="300" />
-      <br />
-      Movies
-    </td>
-    <td align="center">
-      <img src="./IMAGES/movies2.png" alt="Movies Modal" width="300" />
-      <br />
-      Movies Modal
-    </td>
-    <td align="center">
-      <img src="./IMAGES/movies3.png" alt="Movies Player" width="300" />
-      <br />
-      Movies Player
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="./IMAGES/shows1.png" alt="Start Page" width="300" />
-      <br />
-      Shows Page
-    </td>
-    <td align="center">
-      <img src="./IMAGES/shows2.png" alt="Live TV" width="300" />
-      <br />
-      Episodes Page
-    </td>
-    <td align="center">
-      <img src="./IMAGES/shows3.png" alt="TV Player" width="300" />
-      <br />
-      Episodes Player
-    </td>
-  </tr>
-   <tr>
-    <td align="center">
-      <img src="./IMAGES/multiview1.png" alt="Multiview Setup" width="300" />
-      <br />
-      Multiview Setup
-    </td>
-    <td align="center">
-      <img src="./IMAGES/multiview2.png" alt="Multiview Player" width="300" />
-      <br />
-      Multiview Player
-    </td>
-    <td align="center">
-      <img src="./IMAGES/settings.png" alt="Settings Page" width="300" />
-      <br />
-      Settings Page
-    </td>
-  </tr>
-	<tr>
-		<td align="center">
-      <img src="./IMAGES/apps.png" alt="Apps Page" width="300" />
-      <br />
-      Apps Page
-    </td>
-  </tr>
-  </table>
-  <table>
-  <tr>
-    <td align="center">
-      <img src="./IMAGES/remote1.png" alt="Remote 1" width="125" />
-      <br />
-      Remote 1
-    </td>
-    <td align="center">
-      <img src="./IMAGES/remote2.png" alt="Remote 2" width="125" />
-      <br />
-      Remote 2
-    </td>
-	<td align="center">
-      <img src="./IMAGES/remote3.png" alt="Remote 3" width="125" />
-      <br />
-      Remote 3
-    </td>
-    <td align="center">
-      <img src="./IMAGES/remote4.png" alt="Remote 4" width="125" />
-      <br />
-      Remote 4
-    </td>
-	<td align="center">
-      <img src="./IMAGES/remote5.png" alt="Remote 5" width="125" />
-      <br />
-      Remote 5
-    </td>
-    <td align="center">
-      <img src="./IMAGES/remote6.png" alt="Remote 6" width="125" />
-      <br />
-      Remote 6
-    </td>
-	<td align="center">
-      <img src="./IMAGES/remote7.png" alt="Remote 7" width="125" />
-      <br />
-      Remote 7
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="./IMAGES/remote8.png" alt="Remote 8" width="125" />
-      <br />
-      Remote 8
-    </td>
-  </tr>		  
-</table>
-
+## Keyboard Shortcuts
+If you are using a standard keyboard or a generic media remote mapped to keyboard strokes, Feral HTPC supports the following global commands during playback:
+* **Enter / Space:** Play / Pause
+* **Up / Down:** Channel Up / Channel Down
+* **Left / Right:** Rewind / Fast Forward (10-second intervals for Live TV, 30-second for Movies)
+* **F / F11:** Toggle Fullscreen
+* **C:** Toggle Closed Captions
+* **Escape / Backspace:** Close the player / Return to the previous screen
+* **Media Keys:** Play/Pause, Stop, Mute, Volume Up, Volume Down are natively supported.
