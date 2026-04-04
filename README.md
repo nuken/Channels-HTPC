@@ -73,3 +73,130 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 * **C:** Toggle Closed Captions
 * **Escape / Backspace:** Close the player / Return to the previous screen
 * **Media Keys:** Play/Pause, Stop, Mute, Volume Up, Volume Down are natively supported.
+
+### Gallery
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="./IMAGES/start.png" alt="Start Page" width="300" />
+      <br />
+      Start Page
+    </td>
+    <td align="center">
+      <img src="./IMAGES/live.png" alt="Live TV" width="300" />
+      <br />
+      Live TV
+    </td>
+    <td align="center">
+      <img src="./IMAGES/tv.png" alt="TV Player" width="300" />
+      <br />
+      TV Player
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="./IMAGES/movies1.png" alt="Movies" width="300" />
+      <br />
+      Movies
+    </td>
+    <td align="center">
+      <img src="./IMAGES/movies2.png" alt="Movies Modal" width="300" />
+      <br />
+      Movies Modal
+    </td>
+    <td align="center">
+      <img src="./IMAGES/movies3.png" alt="Movies Player" width="300" />
+      <br />
+      Movies Player
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="./IMAGES/shows1.png" alt="Start Page" width="300" />
+      <br />
+      Shows Page
+    </td>
+    <td align="center">
+      <img src="./IMAGES/shows2.png" alt="Live TV" width="300" />
+      <br />
+      Episodes Page
+    </td>
+    <td align="center">
+      <img src="./IMAGES/shows3.png" alt="TV Player" width="300" />
+      <br />
+      Episodes Player
+    </td>
+  </tr>
+   <tr>
+    <td align="center">
+      <img src="./IMAGES/multiview1.png" alt="Multiview Setup" width="300" />
+      <br />
+      Multiview Setup
+    </td>
+    <td align="center">
+      <img src="./IMAGES/multiview2.png" alt="Multiview Player" width="300" />
+      <br />
+      Multiview Player
+    </td>
+    <td align="center">
+      <img src="./IMAGES/settings.png" alt="Settings Page" width="300" />
+      <br />
+      Settings Page
+    </td>
+  </tr>
+	<tr>
+		<td align="center">
+      <img src="./IMAGES/apps.png" alt="Apps Page" width="300" />
+      <br />
+      Apps Page
+    </td>
+  </tr>
+  </table>
+  <table>
+  <tr>
+    <td align="center">
+      <img src="./IMAGES/remote1.png" alt="Remote 1" width="125" />
+      <br />
+      Remote 1
+    </td>
+    <td align="center">
+      <img src="./IMAGES/remote2.png" alt="Remote 2" width="125" />
+      <br />
+      Remote 2
+    </td>
+	<td align="center">
+      <img src="./IMAGES/remote3.png" alt="Remote 3" width="125" />
+      <br />
+      Remote 3
+    </td>
+    <td align="center">
+      <img src="./IMAGES/remote4.png" alt="Remote 4" width="125" />
+      <br />
+      Remote 4
+    </td>
+	<td align="center">
+      <img src="./IMAGES/remote5.png" alt="Remote 5" width="125" />
+      <br />
+      Remote 5
+    </td>
+    <td align="center">
+      <img src="./IMAGES/remote6.png" alt="Remote 6" width="125" />
+      <br />
+      Remote 6
+    </td>
+	<td align="center">
+      <img src="./IMAGES/remote7.png" alt="Remote 7" width="125" />
+      <br />
+      Remote 7
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="./IMAGES/remote8.png" alt="Remote 8" width="125" />
+      <br />
+      Remote 8
+    </td>
+  </tr>		  
+</table>
+
