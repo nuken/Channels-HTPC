@@ -23,7 +23,7 @@ OutputDir=Output
 Source: "bin\Release\net10.0-windows\win-x64\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\Feral HTPC"; Filename: "{app}\FeralsHTPC.exe"
+Name: "{autoprograms}\Feral HTPC"; Filename: "{app}\FeralHTPC.exe"
 Name: "{autodesktop}\Feral HTPC"; Filename: "{app}\FeralHTPC.exe"
 
 [Run]
