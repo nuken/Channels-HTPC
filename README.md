@@ -1,4 +1,4 @@
-# Feral HTPC (Version 1.0.2-beta)
+# Feral HTPC (Version 1.0.3-beta)
 
 Feral HTPC is a dedicated, feature-rich desktop client designed specifically for Home Theater PCs (HTPCs) running Windows. It interfaces directly with your Channels DVR server to provide a seamless, controller-friendly interface for Live TV, Movies, and external streaming services. 
 
@@ -78,6 +78,19 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 * **Media Keys:** Play/Pause, Stop, Mute, Volume Up, Volume Down are natively supported.
 
 # Changelog
+
+## [1.0.3-beta] 
+
+### New Features & Improvements
+* **True Hardware Audio Passthrough (Bitstreaming):** Added native support for sending raw 5.1 Dolby Digital (AC-3) surround sound directly to Audio/Video Receivers. The core engine now utilizes Windows Audio Session API (WASAPI) and SPDIF flags to bypass the Windows audio mixer for authentic home theater sound.
+* **Advanced OTA Signal Resiliency:** Completely overhauled how Feral HTPC handles severely corrupted OTA broadcasts (such as local affiliates broadcasting broken timestamps). The player now utilizes aggressive LibVLC clock-sync overrides (`ts-trust-pcr=0`, massive clock jitter buffers, and live audio up-sampling) to maintain perfect playback on direct TS streams without dropping audio or requiring an HLS transcode.
+* **Smart Stereo Downmixing:** The local FFmpeg proxy now actively detects 5.1 surround sound tracks (often used by major networks like CBS, ABC, and NBC) and safely downmixes them into 2.0 stereo when "Force AAC" is enabled, preventing silent audio failures.
+* **Optimized Closed Captions:** Adjusted the default relative font size for subtitles so they render at a much more comfortable, cinematic scale on large 4K and 77" displays.
+* **Settings UI Cleanup:** Removed the experimental "Force HLS for OTA" toggle. The new advanced raw TS resiliency makes HLS buffering obsolete, resulting in much faster and more reliable channel tuning.
+
+### Bug Fixes
+* **Movie Playback Ghost Process:** Fixed an issue where finishing a recorded movie while the main application was set to "Minimize on Play" would cause the application to remain invisibly running in the background. The main window now reliably restores and focuses itself when the video player closes.
+* **Proxy Initialization:** Resolved an internal variable scoping issue that could prevent the local FFmpeg proxy from successfully receiving the target audio codec logic. 
 
 ## [1.0.2-beta] 
 

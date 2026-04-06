@@ -245,7 +245,7 @@ namespace FeralCode
                 
                 // NEW: Tell VLC not to aggressively drop frames when it encounters the TS jump
                 _currentMedia.AddOption(":clock-jitter=0"); 
-
+                _currentMedia.AddOption(":freetype-rel-fontsize=12");
                 _mediaPlayer.Play(_currentMedia);
             }
             finally
@@ -332,7 +332,7 @@ namespace FeralCode
         }
 		
 		// Update the method signature to accept the offset
-private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSeconds = 0)
+        private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSeconds, string targetAudioCodec)
         {
             // Give VLC's native thread 150ms to gracefully close the HTTP socket 
             // before we forcefully kill the old FFmpeg process feeding it.
@@ -346,7 +346,7 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
             // --- FIX: Point to the new AppData directory instead of Program Files ---
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             string localFfmpegPath = System.IO.Path.Combine(appData, "FeralHTPC", "ffmpeg", "ffmpeg.exe");
-            
+            string audioArgs = targetAudioCodec == "copy" ? "-c:a copy" : "-c:a aac -ac 2";
             // Fallback to global PATH if the auto-download somehow failed
             string targetExecutable = System.IO.File.Exists(localFfmpegPath) ? localFfmpegPath : "ffmpeg";
 
@@ -357,7 +357,7 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
                 // CLEANED UP: We removed the aggressive -r 30 and -fps_mode commands. 
                 // This is now a lightweight, hyper-fast proxy strictly for normalizing 
                 // standard Live TV audio/video codecs.
-                Arguments = $"-nostdin -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags +genpts+igndts+discardcorrupt -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -c:v libx264 -preset ultrafast -tune zerolatency -c:a aac -ignore_unknown -max_muxing_queue_size 1024 -f mpegts -listen 1 {ffmpegBindUrl}",
+                Arguments = $"-nostdin -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags +genpts+igndts+discardcorrupt -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -c:v libx264 -preset ultrafast -tune zerolatency {audioArgs} -ignore_unknown -max_muxing_queue_size 1024 -f mpegts -listen 1 {ffmpegBindUrl}",
                 
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -882,6 +882,7 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
 
             var media = new Media(MainWindow.SharedLibVLC, new Uri(_movieStreamUrl));
             media.AddOption(":network-caching=2000");
+			media.AddOption(":freetype-rel-fontsize=12");
 
             _mediaPlayer.Play(media);
             LogDebug("PlayMovie: _mediaPlayer.Play() called.");
@@ -939,23 +940,16 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
                 try
                 {
                     if (!string.IsNullOrWhiteSpace(currentChannel.ImageUrl))
-                    {
                         UiChannelLogo.Source = new System.Windows.Media.Imaging.BitmapImage(new Uri(currentChannel.ImageUrl, UriKind.Absolute));
-                    }
                     else
-                    {
                         UiChannelLogo.Source = null;
-                    }
                 }
-                catch (Exception imgEx)
-                {
-                    LogDebug($"Warning: Failed to load logo for CH {currentChannel.Number}. Error: {imgEx.Message}");
-                    UiChannelLogo.Source = null; 
-                }
+                catch { UiChannelLogo.Source = null; }
                 
                 string streamUrl = "";
                 int offsetSeconds = 0;
-                bool useProxy = _settings.ForceLocalTranscode; // Declared once here!
+                bool useProxy = _settings.ForceLocalTranscode; 
+                string audioCodec = "copy"; 
 
                 bool isVirtualChannel = currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase);
 
@@ -964,26 +958,16 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
                     LogDebug("PlayCurrentChannel: Virtual channel detected.");
                     if (currentAiring != null && !string.IsNullOrWhiteSpace(currentAiring.Source))
                     {
-                        // 1. Extract the exact file ID currently playing
                         string fileId = currentAiring.Source.Split('/').Last(); 
-                        
-                        // 2. CRITICAL FIX: We MUST use the HLS playlist. 
-                        // Raw files over HTTP cannot be instantly seeked by VLC 
-                        // (which caused the EndReached loop). The M3U8 playlist allows 
-                        // VLC to instantly download the correct video segment for the offset!
                         streamUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{fileId}/hls/stream.m3u8";
                         
-                        // 3. Calculate exactly how many seconds into the episode we are
                         offsetSeconds = (int)(DateTime.Now - currentAiring.StartTime).TotalSeconds;
                         if (offsetSeconds < 0) offsetSeconds = 0;
                         
-                        // 4. Force the proxy OFF. VLC natively handles M3U8 playlists perfectly 
-                        // without the "1000 frame duplicated" white-screen issues FFmpeg had.
                         useProxy = false; 
                     }
                     else
                     {
-                        LogDebug("PlayCurrentChannel: Virtual channel missing source media.");
                         MessageBox.Show("No active media is scheduled for this Virtual Channel right now.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                         this.Close();
                         return;
@@ -991,9 +975,9 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
                 }
                 else
                 {
-                    // --- Standard Live TV Channels ---
+                    // --- ABANDONED HLS FALLBACK. REVERTED TO RAW TS FOR ALL LIVE CHANNELS ---
                     var settings = SettingsManager.Load();
-                    string audioCodec = "aac"; 
+                    audioCodec = "aac"; 
 
                     if (!settings.ForceAacAudio)
                     {
@@ -1004,27 +988,23 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
 
                     streamUrl = $"{_baseUrl.TrimEnd('/')}/devices/ANY/channels/{currentChannel.Number}/stream.mpg?format=ts&vcodec=copy&acodec={audioCodec}";
                 }
-
+                
                 LogDebug($"PlayCurrentChannel: Final Stream URL: {streamUrl}");
 
                 if (_mediaPlayer.IsPlaying) 
                 {
-                    LogDebug("PlayCurrentChannel: Stopping previously playing _mediaPlayer.");
                     _mediaPlayer.Stop();
                     _mediaPlayer.Media = null; 
                 }
 
                 CleanupSpooler();
 
-                // Removed the duplicate 'useProxy' declaration from here
                 string activeStreamUrl = streamUrl;
 
                 if (useProxy)
                 {
                     LogDebug("Routing stream through FFmpeg proxy to normalize formats.");
-                    
-                    // Pass the offsetSeconds to FFmpeg so it jumps to the correct time
-                    activeStreamUrl = await StartFfmpegProxyAsync(streamUrl, offsetSeconds);
+                    activeStreamUrl = await StartFfmpegProxyAsync(streamUrl, offsetSeconds, audioCodec);
                     
                     if (string.IsNullOrEmpty(activeStreamUrl))
                     {
@@ -1050,10 +1030,7 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
                     {
                         if (File.Exists(_spoolFilePath))
                         {
-                            try 
-                            { 
-                                if (new FileInfo(_spoolFilePath).Length > 2000000) break; 
-                            } 
+                            try { if (new FileInfo(_spoolFilePath).Length > 2000000) break; } 
                             catch { } 
                         }
                         await Task.Delay(100);
@@ -1071,20 +1048,24 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
                 }
                 else
                 {
-                    if (isVirtualChannel) LogDebug("PlayCurrentChannel: Virtual Channel detected. Bypassing spooler.");
-                    else LogDebug("PlayCurrentChannel: Time-Shift disabled. Streaming directly.");
+                    LogDebug("PlayCurrentChannel: Streaming directly.");
                     
                     _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(activeStreamUrl));
-                    _currentMedia.AddOption(":network-caching=2000");
-                    _currentMedia.AddOption(":live-caching=2000");
-					_currentMedia.AddOption(":ts-trust-pcr=0"); 
+                    _currentMedia.AddOption(":network-caching=3000");
+                    _currentMedia.AddOption(":live-caching=3000");
+                    
+                    // --- THE NUCLEAR OPTION FOR CORRUPTED TIMESTAMPS ---
+                    _currentMedia.AddOption(":ts-trust-pcr=0");       // Ignore the master clock reference entirely
+                    _currentMedia.AddOption(":ts-seek-percent=0");    // Disable percentage seeking (breaks on bad clocks)
+                    _currentMedia.AddOption(":clock-jitter=5000");    // Allow massive 5-second desyncs before dropping frames
+                    _currentMedia.AddOption(":clock-synchro=0");      // Force free-wheel audio decoding
                 }
 
                 _currentMedia.AddOption(":avcodec-hw=none");
                 _currentMedia.AddOption(":no-spu");
                 _currentMedia.AddOption(":no-sub-autodetect-file");
+                _currentMedia.AddOption(":freetype-rel-fontsize=12");
 
-                // Seek command for raw file playback (Virtual Channels)
                 if (offsetSeconds > 0 && !useProxy)
                 {
                     _currentMedia.AddOption($":start-time={offsetSeconds}");
@@ -1108,17 +1089,15 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
                     TotalTimeText.Text = "";
                 }
 
-                LogDebug("PlayCurrentChannel: Starting 15s TuneTimeoutTimer and calling _mediaPlayer.Play().");
                 _tuneTimeoutTimer?.Stop();
                 _tuneTimeoutTimer?.Start();
 
                 _mediaPlayer.Play(_currentMedia);
-                LogDebug("PlayCurrentChannel: _mediaPlayer.Play() completed.");
             }
             catch (Exception ex)
             {
-                LogDebug($"FATAL C# ERROR in PlayCurrentChannel: {ex.Message}\n{ex.StackTrace}");
-                MessageBox.Show($"Failed to load channel: {ex.Message}", "Application Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                LogDebug($"FATAL C# ERROR in PlayCurrentChannel: {ex.Message}");
+                MessageBox.Show($"Failed to load channel: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 this.Close();
             }
         }
@@ -1487,9 +1466,20 @@ private async Task<string> StartFfmpegProxyAsync(string sourceUrl, int offsetSec
         }
 
         private async void PlayerWindow_Closed(object? sender, EventArgs e)
-{
-    LogDebug("PlayerWindow_Closed: Cleaning up resources.");
-    System.Windows.Input.Mouse.OverrideCursor = null; // Restore globally
+        {
+            LogDebug("PlayerWindow_Closed: Cleaning up resources.");
+            System.Windows.Input.Mouse.OverrideCursor = null; // Restore globally
+            
+            // --- NEW: Restore the Main Window! ---
+            if (Application.Current.MainWindow != null)
+            {
+                Application.Current.MainWindow.Show();
+                if (Application.Current.MainWindow.WindowState == WindowState.Minimized)
+                {
+                    Application.Current.MainWindow.WindowState = WindowState.Normal;
+                }
+                Application.Current.MainWindow.Activate();
+            }
     Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
             
             _uiTimer?.Stop();
