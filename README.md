@@ -86,7 +86,6 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 * **Advanced OTA Signal Resiliency:** Completely overhauled how Feral HTPC handles severely corrupted OTA broadcasts (such as local affiliates broadcasting broken timestamps). The player now utilizes aggressive LibVLC clock-sync overrides (`ts-trust-pcr=0`, massive clock jitter buffers, and live audio up-sampling) to maintain perfect playback on direct TS streams without dropping audio or requiring an HLS transcode.
 * **Smart Stereo Downmixing:** The local FFmpeg proxy now actively detects 5.1 surround sound tracks (often used by major networks like CBS, ABC, and NBC) and safely downmixes them into 2.0 stereo when "Force AAC" is enabled, preventing silent audio failures.
 * **Optimized Closed Captions:** Adjusted the default relative font size for subtitles so they render at a much more comfortable, cinematic scale on large 4K and 77" displays.
-* **Settings UI Cleanup:** Removed the experimental "Force HLS for OTA" toggle. The new advanced raw TS resiliency makes HLS buffering obsolete, resulting in much faster and more reliable channel tuning.
 
 ### Bug Fixes
 * **Movie Playback Ghost Process:** Fixed an issue where finishing a recorded movie while the main application was set to "Minimize on Play" would cause the application to remain invisibly running in the background. The main window now reliably restores and focuses itself when the video player closes.
