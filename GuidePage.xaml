@@ -179,7 +179,7 @@
                          Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource ListBoxItemStyle}">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Border Height="70" Background="{DynamicResource CardBackground}" CornerRadius="4" Margin="0,10,10,10" Padding="5">
+                            <Border Height="70" Background="{DynamicResource CardBackground}" CornerRadius="4" Margin="0,5,10,5" Padding="5">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="*"/>
@@ -227,7 +227,7 @@
                              ItemContainerStyle="{StaticResource ListBoxItemStyle}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Grid Height="70" Margin="0,10" ClipToBounds="False">
+                                <Grid Height="70" Margin="0,5" ClipToBounds="False">
                                     <ItemsControl ItemsSource="{Binding CurrentAirings}" Focusable="False" IsTabStop="False">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
@@ -239,7 +239,7 @@
                                                 <Button Click="AiringBlock_Click" GotFocus="AiringBlock_GotFocus" RequestBringIntoView="AiringBlock_RequestBringIntoView" Tag="{Binding}" FocusVisualStyle="{StaticResource TvGuideFocusStyle}" Margin="{Binding DynamicMargin}" Padding="0" BorderThickness="0" Background="Transparent" Cursor="Hand">
                                                     <Button.Template>
                                                         <ControlTemplate TargetType="Button">
-                                                            <Border x:Name="EpgBorder" MinWidth="150" Width="{Binding BlockWidth}" Height="60" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="1,0">
+                                                            <Border x:Name="EpgBorder" MinWidth="150" Width="{Binding BlockWidth}" Height="70" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="1,0">
                                                                 <Grid Margin="{Binding InnerContentMargin}">
                                                                     <Grid.ColumnDefinitions>
                                                                         <ColumnDefinition Width="Auto"/>
