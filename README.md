@@ -1,4 +1,4 @@
-# Feral HTPC (Version 1.0.3-beta)
+# Feral HTPC (Version 1.0.4-beta)
 
 Feral HTPC is a dedicated, feature-rich desktop client designed specifically for Home Theater PCs (HTPCs) running Windows. It interfaces directly with your Channels DVR server to provide a seamless, controller-friendly interface for Live TV, Movies, and external streaming services. 
 
@@ -78,6 +78,16 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 * **Media Keys:** Play/Pause, Stop, Mute, Volume Up, Volume Down are natively supported.
 
 # Changelog
+
+## [1.0.4-beta] 
+
+### New Features & Improvements
+* **Cinematic Broadcast Deinterlacing:** Implemented native YADIF deinterlacing across all raw TS streams and Time-Shift buffers. This completely eliminates the jagged "comb" artifacts commonly seen during fast motion on 1080i broadcast channels (such as CBS and NBC), bringing Feral HTPC's visual quality to parity with the official desktop VLC application.
+* **Progressive FFmpeg Proxy:** Upgraded the local FFmpeg transcoding pipeline to actively blend and deinterlace (`-vf yadif`) native 1080i streams before encoding. This ensures a pristine, progressive video feed is delivered to the player when "Force Local Transcode" is enabled.
+* **Persistent Visual Quality:** Engineered the Live TV seeking mechanism to dynamically preserve all deinterlacing and clock-sync overrides. Video quality and audio sync now remain perfectly intact even after scrubbing, rewinding, or fast-forwarding the timeline.
+
+### Bug Fixes
+* **Dynamic Audio Routing Scope:** Resolved an internal compiler error in the playback initialization pipeline where the dynamic audio codec variable dropped out of scope before the proxy could execute. 
 
 ## [1.0.3-beta] 
 

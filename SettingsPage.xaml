@@ -191,7 +191,7 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="CurrentVersionText" Text="v1.0.3-beta" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                    <TextBlock x:Name="CurrentVersionText" Text="v1.0.4-beta" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" Margin="0,0,15,0"/>
                     <Button x:Name="CheckVersionBtn" Content="Check for Updates" Click="CheckVersion_Click" Style="{StaticResource ModernButton}" Padding="15,8" FontSize="14"/>
                 </StackPanel>
             </Grid>

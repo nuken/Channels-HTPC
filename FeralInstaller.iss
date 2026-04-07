@@ -1,11 +1,11 @@
 [Setup]
 AppName=Feral HTPC
-AppVersion=1.0.3-beta
+AppVersion=1.0.4-beta
 AppPublisher=Feral HTPC Development
 VersionInfoCompany=Feral HTPC Development
 VersionInfoProductName=Feral HTPC Setup
-VersionInfoProductVersion=1.0.3
-VersionInfoProductTextVersion=1.0.3-beta
+VersionInfoProductVersion=1.0.4
+VersionInfoProductTextVersion=1.0.4-beta
 VersionInfoCopyright=Copyright (C) 2026 Feral HTPC Development
 AppPublisherURL=https://github.com/nuken/Feral-HTPC
 DefaultDirName={autopf}\FeralHTPC
