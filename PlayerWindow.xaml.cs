@@ -1057,14 +1057,21 @@ namespace FeralCode
                     _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(activeStreamUrl));
                     _currentMedia.AddOption(":network-caching=3000");
                     _currentMedia.AddOption(":live-caching=3000");
-					_currentMedia.AddOption(":deinterlace=1");
-					_currentMedia.AddOption(":deinterlace-mode=yadif");
+                    _currentMedia.AddOption(":deinterlace=1");
+                    _currentMedia.AddOption(":deinterlace-mode=yadif");
                     
-                    // --- THE NUCLEAR OPTION FOR CORRUPTED TIMESTAMPS ---
+                    // --- UNLEASH THE SUPER-NUCLEAR OPTION ON ALL DIRECT STREAMS ---
+                    LogDebug("Applying strict clock overrides for resilient playback.");
                     _currentMedia.AddOption(":ts-trust-pcr=0");       // Ignore the master clock reference entirely
                     _currentMedia.AddOption(":ts-seek-percent=0");    // Disable percentage seeking (breaks on bad clocks)
                     _currentMedia.AddOption(":clock-jitter=5000");    // Allow massive 5-second desyncs before dropping frames
-                    _currentMedia.AddOption(":clock-synchro=0");      // Force free-wheel audio decoding
+                    _currentMedia.AddOption(":clock-synchro=0");      // Force free-wheel audio/video decoding
+                    
+                    // --- NEW: VLCRC HIDDEN TWEAKS FOR PLUTO/TVE STREAMS ---
+                    _currentMedia.AddOption(":ts-cc-check=0");        // Ignore packet sequence jumps (commercial breaks)
+                    _currentMedia.AddOption(":drop-late-frames=0");   // Never drop late pictures
+                    _currentMedia.AddOption(":skip-frames=0");        // Never skip early pictures
+                    _currentMedia.AddOption(":avcodec-hurry-up=0");   // Force decoder to render all frames during clock gaps
                 }
 
                 _currentMedia.AddOption(":avcodec-hw=none");
