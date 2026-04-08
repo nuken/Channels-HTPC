@@ -32,6 +32,8 @@ namespace FeralCode
 		public bool EnableVirtualChannels { get; set; } = false;
         public List<ExternalStream> ExternalStreams { get; set; } = new List<ExternalStream>();
 		public bool EnableDebugLogging { get; set; } = false;
+		public double UiScale { get; set; } = 1.0;
+		public bool SimplifiedGuide { get; set; } = false;
     }
 
    public static class SettingsManager

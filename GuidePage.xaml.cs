@@ -19,7 +19,8 @@ namespace FeralCode
     public partial class GuidePage : Page
     {
         private readonly ChannelsApi _api = new ChannelsApi();
-        
+        public double UiScale => _settings.UiScale > 0 ? _settings.UiScale : 1.0;
+        public bool IsSimplifiedGuide => _settings.SimplifiedGuide;
         private List<Channel> _masterChannelList = new List<Channel>();
         private List<Channel> _currentFilteredList = new List<Channel>();
         private List<ChannelCollection> _collections = new List<ChannelCollection>(); 
@@ -36,7 +37,8 @@ namespace FeralCode
         public GuidePage()
         {
             InitializeComponent();
-            
+			
+            this.DataContext = this;
             ChannelItemsControl.ItemsSource = _displayedChannels;
             GuideItemsControl.ItemsSource = _displayedChannels;
             

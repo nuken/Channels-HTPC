@@ -44,7 +44,8 @@ namespace FeralCode
             // Grabs local network IP and pairs it with WebServerPort (fallback to 8080 if 0)
             int currentPort = _settings.WebServerPort > 0 ? _settings.WebServerPort : 8080; 
             LocalRemoteUrlBox.Text = $"http://{GetLocalIPAddress()}:{currentPort}";
-
+            SimplifiedGuideCheckBox.IsChecked = _settings.SimplifiedGuide;
+			UiScaleSlider.Value = _settings.UiScale > 0 ? _settings.UiScale : 1.0;
             // --- Version Display ---
             string localVersion = "1.0.2-beta"; // Fallback
             try
@@ -343,6 +344,8 @@ namespace FeralCode
             _settings.StickyGuideHeaders = StickyHeadersCheckBox.IsChecked ?? true;
 			_settings.EnableVirtualChannels = VirtualChannelsCheckBox.IsChecked ?? false;
             _settings.ShowExtendedMetadata = ShowExtendedMetadata.IsChecked ?? false;
+			_settings.SimplifiedGuide = SimplifiedGuideCheckBox.IsChecked ?? false;
+			_settings.UiScale = UiScaleSlider.Value;
             _settings.ForceAacAudio = ForceAacCheckBox.IsChecked ?? true;
 			_settings.ForceLocalTranscode = ForceLocalTranscodeCheckBox.IsChecked ?? false;
 			            
@@ -395,6 +398,15 @@ namespace FeralCode
             settings.ForceLocalTranscode = ForceLocalTranscodeCheckBox.IsChecked ?? false;
             SettingsManager.Save(settings);
         }
+		
+		private void UiScaleSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+{
+    if (UiScaleValueText != null)
+    {
+        // Convert 1.25 to "125%"
+        UiScaleValueText.Text = $"{(int)(e.NewValue * 100)}%"; 
+    }
+}
 		
 		private void Page_PreviewKeyDown(object sender, KeyEventArgs e)
         {

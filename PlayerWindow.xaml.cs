@@ -243,11 +243,28 @@ namespace FeralCode
                 _currentMedia.AddOption(":no-spu");
                 _currentMedia.AddOption(":no-sub-autodetect-file");
                 
-                // NEW: Tell VLC not to aggressively drop frames when it encounters the TS jump
-                _currentMedia.AddOption(":clock-jitter=0"); 
                 _currentMedia.AddOption(":freetype-rel-fontsize=12");
-                _currentMedia.AddOption(":deinterlace=1");             // <-- ADD THIS
-                _currentMedia.AddOption(":deinterlace-mode=yadif");    // <-- ADD THIS
+                _currentMedia.AddOption(":deinterlace=1");             
+                _currentMedia.AddOption(":deinterlace-mode=yadif");    
+                
+                // --- TIER 1: GLOBAL LENIENCY FOR TIMESHIFT SEEKS ---
+                _currentMedia.AddOption(":clock-jitter=5000");      
+                _currentMedia.AddOption(":no-ts-cc-check");         
+                _currentMedia.AddOption(":no-drop-late-frames");    
+                _currentMedia.AddOption(":no-skip-frames");         
+                _currentMedia.AddOption(":no-avcodec-hurry-up"); 
+
+                // --- TIER 2: OTA NUCLEAR OPTION FOR TIMESHIFT SEEKS ---
+                // We define what an OTA channel is right here so this method understands it!
+                bool isOtaChannel = _channels != null && _channels[_currentIndex].Number != null && _channels[_currentIndex].Number.Contains(".");
+
+                if (isOtaChannel)
+                {
+                    _currentMedia.AddOption(":no-ts-trust-pcr");       
+                    _currentMedia.AddOption(":no-ts-seek-percent");    
+                    _currentMedia.AddOption(":clock-synchro=0");
+                }
+
                 _mediaPlayer.Play(_currentMedia);
             }
             finally
@@ -359,7 +376,7 @@ namespace FeralCode
                 // CLEANED UP: We removed the aggressive -r 30 and -fps_mode commands. 
                 // This is now a lightweight, hyper-fast proxy strictly for normalizing 
                 // standard Live TV audio/video codecs.
-                Arguments = $"-nostdin -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags +genpts+igndts+discardcorrupt -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -vf yadif -c:v libx264 -preset ultrafast -tune zerolatency {audioArgs} -ignore_unknown -max_muxing_queue_size 1024 -f mpegts -listen 1 {ffmpegBindUrl}",
+                Arguments = $"-nostdin -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags +genpts+igndts+discardcorrupt -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -map 0:s? -vf yadif -c:v libx264 -preset ultrafast -tune zerolatency {audioArgs} -c:s copy -ignore_unknown -max_muxing_queue_size 1024 -f mpegts -listen 1 {ffmpegBindUrl}",
                 
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -1047,8 +1064,23 @@ namespace FeralCode
                     _currentMedia.AddOption(":network-caching=5000"); 
                     _currentMedia.AddOption(":live-caching=5000");
                     _currentMedia.AddOption(":demux=ts");
-					_currentMedia.AddOption(":deinterlace=1");
-					_currentMedia.AddOption(":deinterlace-mode=yadif");
+                    _currentMedia.AddOption(":deinterlace=1");
+                    _currentMedia.AddOption(":deinterlace-mode=yadif");
+                    
+                    // --- TIER 1: GLOBAL LENIENCY FOR TIMESHIFT ---
+                    _currentMedia.AddOption(":clock-jitter=5000");      
+                    _currentMedia.AddOption(":no-ts-cc-check");         
+                    _currentMedia.AddOption(":no-drop-late-frames");    
+                    _currentMedia.AddOption(":no-skip-frames");         
+                    _currentMedia.AddOption(":no-avcodec-hurry-up");    
+                    
+                    // --- TIER 2: OTA NUCLEAR OPTION FOR TIMESHIFT ---
+                    if (currentChannel.Number != null && currentChannel.Number.Contains("."))
+                    {
+                        _currentMedia.AddOption(":no-ts-trust-pcr");       
+                        _currentMedia.AddOption(":no-ts-seek-percent");    
+                        _currentMedia.AddOption(":clock-synchro=0");       
+                    }
                 }
                 else
                 {
@@ -1069,9 +1101,8 @@ namespace FeralCode
                     _currentMedia.AddOption(":no-avcodec-hurry-up");    // Boolean flag (False)
                     
                     // --- TIER 2: THE TRUE NUCLEAR OPTION (Only for broken antenna clocks) ---
-                    bool isOtaChannel = currentChannel.Number != null && currentChannel.Number.Contains(".");
-                    
-                    if (isOtaChannel)
+                                       
+                    if (currentChannel.Number != null && currentChannel.Number.Contains("."))
                     {
                         LogDebug("Applying strict clock overrides for OTA broadcast.");
                         _currentMedia.AddOption(":no-ts-trust-pcr");       // Boolean flag (False)

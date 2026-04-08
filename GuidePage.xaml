@@ -99,6 +99,10 @@
     </Page.Resources>
 
     <Grid Margin="20">
+        <Grid.LayoutTransform>
+            <ScaleTransform ScaleX="{Binding UiScale}" ScaleY="{Binding UiScale}"/>
+        </Grid.LayoutTransform>
+
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> 
             <RowDefinition Height="Auto"/> 
@@ -241,18 +245,20 @@
                                                         <ControlTemplate TargetType="Button">
                                                             <Border x:Name="EpgBorder" MinWidth="150" Width="{Binding BlockWidth}" Height="70" Background="{DynamicResource CardBackground}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="1,0">
                                                                 <Grid Margin="{Binding InnerContentMargin}">
-                                                                    <Grid.ColumnDefinitions>
-                                                                        <ColumnDefinition Width="Auto"/>
-                                                                        <ColumnDefinition Width="*"/>
-                                                                    </Grid.ColumnDefinitions>
-                                                                    <Grid.RowDefinitions>
-                                                                        <RowDefinition Height="Auto"/>
-                                                                        <RowDefinition Height="*"/>
-                                                                    </Grid.RowDefinitions>
-                                                                    <Border Grid.Column="0" Grid.RowSpan="2" Width="4" Background="{Binding CategoryColor}" CornerRadius="2" Margin="0,0,6,0"/>
-                                                                    <TextBlock Grid.Column="1" Grid.Row="0" Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextPrimary}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Top" TextTrimming="CharacterEllipsis"/>
-                                                                    <TextBlock Grid.Column="1" Grid.Row="1" Text="{Binding DisplaySummary}" Foreground="{DynamicResource TextSecondary}" FontSize="11" VerticalAlignment="Top" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
-                                                                </Grid>
+    <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+    
+    <Border Grid.Column="0" Grid.RowSpan="2" Width="4" Background="{Binding CategoryColor}" CornerRadius="2" Margin="0,0,6,0"/>
+    
+    <TextBlock x:Name="EpgTitle" Grid.Column="1" Grid.Row="0" Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextPrimary}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Top" TextTrimming="CharacterEllipsis"/>
+    <TextBlock x:Name="EpgSummary" Grid.Column="1" Grid.Row="1" Text="{Binding DisplaySummary}" Foreground="{DynamicResource TextSecondary}" FontSize="11" VerticalAlignment="Top" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+</Grid>
                                                             </Border>
                                                             <ControlTemplate.Triggers>
                                                                 <Trigger Property="IsMouseOver" Value="True">
@@ -281,7 +287,13 @@
                                                                     </MultiDataTrigger.Conditions>
                                                                     <Setter TargetName="EpgBorder" Property="Background" Value="{DynamicResource LiveHover}"/>
                                                                 </MultiDataTrigger>
-                                                            </ControlTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Page}, Path=IsSimplifiedGuide}" Value="True">
+        <Setter TargetName="EpgSummary" Property="Visibility" Value="Collapsed"/>
+        <Setter TargetName="EpgTitle" Property="FontSize" Value="15"/>
+        <Setter TargetName="EpgTitle" Property="VerticalAlignment" Value="Center"/>
+        <Setter TargetName="EpgTitle" Property="Grid.RowSpan" Value="2"/>
+    </DataTrigger>
+</ControlTemplate.Triggers>
                                                         </ControlTemplate>
                                                     </Button.Template>
                                                 </Button>
