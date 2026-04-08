@@ -248,7 +248,7 @@ namespace FeralCode
                 _currentMedia.AddOption(":deinterlace-mode=yadif");    
                 
                 // --- TIER 1: GLOBAL LENIENCY FOR TIMESHIFT SEEKS ---
-                _currentMedia.AddOption(":clock-jitter=5000");      
+                _currentMedia.AddOption(":clock-jitter=0");      
                 _currentMedia.AddOption(":no-ts-cc-check");         
                 _currentMedia.AddOption(":no-drop-late-frames");    
                 _currentMedia.AddOption(":no-skip-frames");         
@@ -1068,7 +1068,7 @@ namespace FeralCode
                     _currentMedia.AddOption(":deinterlace-mode=yadif");
                     
                     // --- TIER 1: GLOBAL LENIENCY FOR TIMESHIFT ---
-                    _currentMedia.AddOption(":clock-jitter=5000");      
+                    _currentMedia.AddOption(":clock-jitter=0");      
                     _currentMedia.AddOption(":no-ts-cc-check");         
                     _currentMedia.AddOption(":no-drop-late-frames");    
                     _currentMedia.AddOption(":no-skip-frames");         
@@ -1094,7 +1094,7 @@ namespace FeralCode
                     
                     // --- TIER 1: GLOBAL LENIENCY (Helps Pluto/TVE survive commercial breaks) ---
                     LogDebug("Applying global stream leniency flags.");
-                    _currentMedia.AddOption(":clock-jitter=5000");      // Integer value, so =5000 is correct
+                    _currentMedia.AddOption(":clock-jitter=0");      // Integer value, so =5000 is correct
                     _currentMedia.AddOption(":no-ts-cc-check");         // Boolean flag (False)
                     _currentMedia.AddOption(":no-drop-late-frames");    // Boolean flag (False)
                     _currentMedia.AddOption(":no-skip-frames");         // Boolean flag (False)
