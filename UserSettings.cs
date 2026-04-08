@@ -34,6 +34,7 @@ namespace FeralCode
 		public bool EnableDebugLogging { get; set; } = false;
 		public double UiScale { get; set; } = 1.0;
 		public bool SimplifiedGuide { get; set; } = false;
+		public List<string> ForcedFfmpegChannels { get; set; } = new List<string>();
     }
 
    public static class SettingsManager

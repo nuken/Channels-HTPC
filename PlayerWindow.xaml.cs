@@ -967,7 +967,9 @@ namespace FeralCode
                 
                 string streamUrl = "";
                 int offsetSeconds = 0;
-                bool useProxy = _settings.ForceLocalTranscode; 
+                // Use the proxy if the global setting is checked OR if this specific channel was right-clicked and flagged
+                bool useProxy = _settings.ForceLocalTranscode || 
+                (_settings.ForcedFfmpegChannels != null && _settings.ForcedFfmpegChannels.Contains(currentChannel.Number!));
                 string audioCodec = "copy"; 
 
                 bool isVirtualChannel = currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase);

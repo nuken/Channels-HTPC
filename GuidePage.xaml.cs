@@ -888,6 +888,50 @@ var cleanChannels = rawChannels
             ApplyTheme(_settings.IsLightTheme);
             SettingsManager.Save(_settings);
         }
+		
+		private void ChannelContextMenu_Opened(object sender, RoutedEventArgs e)
+        {
+            // WPF Trick: Get the exact Channel Border that the user right-clicked
+            if (sender is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
+            {
+                var menuItem = menu.Items[0] as MenuItem;
+                
+                // Make sure our list exists
+                if (_settings.ForcedFfmpegChannels == null) 
+                    _settings.ForcedFfmpegChannels = new List<string>();
+
+                // Put a checkmark next to it if this channel is already in the FFmpeg list
+                menuItem!.IsChecked = _settings.ForcedFfmpegChannels.Contains(channel.Number!);
+            }
+        }
+
+        private void ForceFfmpeg_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.Parent is ContextMenu menu && menu.PlacementTarget is FrameworkElement border && border.DataContext is Channel channel)
+            {
+                if (_settings.ForcedFfmpegChannels == null) 
+                    _settings.ForcedFfmpegChannels = new List<string>();
+
+                // Toggle the setting
+                if (_settings.ForcedFfmpegChannels.Contains(channel.Number!))
+                {
+                    _settings.ForcedFfmpegChannels.Remove(channel.Number!);
+                    StatusText.Text = $"Removed FFmpeg Transcode for CH {channel.Number}";
+                }
+                else
+                {
+                    _settings.ForcedFfmpegChannels.Add(channel.Number!);
+                    StatusText.Text = $"Forced FFmpeg Transcode for CH {channel.Number}";
+                }
+
+                // Save to disk immediately
+                SettingsManager.Save(_settings);
+                
+                // Optional: Fade out the status text after a few seconds
+                var fadeOut = new System.Windows.Media.Animation.DoubleAnimation { From = 1.0, To = 0.0, Duration = new Duration(TimeSpan.FromSeconds(1)), BeginTime = TimeSpan.FromSeconds(3) };
+                StatusText.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+            }
+        }
         
         // --- NEW: SAFE NAVIGATION ---
         private void HomeButton_Click(object sender, RoutedEventArgs e)

@@ -184,7 +184,15 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Border Height="70" Background="{DynamicResource CardBackground}" CornerRadius="4" Margin="0,5,10,5" Padding="5">
-                                <Grid>
+    
+    <Border.ContextMenu>
+        <ContextMenu Opened="ChannelContextMenu_Opened">
+            <MenuItem x:Name="ForceFfmpegMenuItem" Header="Force FFmpeg Transcode" Click="ForceFfmpeg_Click" FontSize="14" Padding="5"/>
+        </ContextMenu>
+    </Border.ContextMenu>
+    
+    <Grid>
+                               
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="Auto"/>
@@ -249,15 +257,18 @@
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="*"/>
     </Grid.ColumnDefinitions>
-    <Grid.RowDefinitions>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="*"/>
-    </Grid.RowDefinitions>
     
-    <Border Grid.Column="0" Grid.RowSpan="2" Width="4" Background="{Binding CategoryColor}" CornerRadius="2" Margin="0,0,6,0"/>
+    <Border Grid.Column="0" Width="4" Background="{Binding CategoryColor}" CornerRadius="2" Margin="0,0,6,0"/>
     
-    <TextBlock x:Name="EpgTitle" Grid.Column="1" Grid.Row="0" Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextPrimary}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Top" TextTrimming="CharacterEllipsis"/>
-    <TextBlock x:Name="EpgSummary" Grid.Column="1" Grid.Row="1" Text="{Binding DisplaySummary}" Foreground="{DynamicResource TextSecondary}" FontSize="11" VerticalAlignment="Top" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+    <StackPanel x:Name="TextStack" Grid.Column="1" VerticalAlignment="Top">
+        
+        <TextBlock x:Name="EpgTitle" Text="{Binding DisplayTitle}" Foreground="{DynamicResource TextPrimary}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis"/>
+        
+        <TextBlock x:Name="EpgEpisodeTitle" Text="{Binding EpisodeTitle}" Foreground="{DynamicResource TextSecondary}" FontSize="12" FontWeight="Normal" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" Visibility="Collapsed"/>
+        
+        <TextBlock x:Name="EpgSummary" Text="{Binding DisplaySummary}" Foreground="{DynamicResource TextSecondary}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+        
+    </StackPanel>
 </Grid>
                                                             </Border>
                                                             <ControlTemplate.Triggers>
@@ -287,12 +298,19 @@
                                                                     </MultiDataTrigger.Conditions>
                                                                     <Setter TargetName="EpgBorder" Property="Background" Value="{DynamicResource LiveHover}"/>
                                                                 </MultiDataTrigger>
-                                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Page}, Path=IsSimplifiedGuide}" Value="True">
-        <Setter TargetName="EpgSummary" Property="Visibility" Value="Collapsed"/>
-        <Setter TargetName="EpgTitle" Property="FontSize" Value="15"/>
-        <Setter TargetName="EpgTitle" Property="VerticalAlignment" Value="Center"/>
-        <Setter TargetName="EpgTitle" Property="Grid.RowSpan" Value="2"/>
-    </DataTrigger>
+<DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Page}, Path=IsSimplifiedGuide}" Value="True">
+    <Setter TargetName="EpgSummary" Property="Visibility" Value="Collapsed"/>
+    
+    <Setter TargetName="EpgEpisodeTitle" Property="Visibility" Value="Visible"/>
+    <Setter TargetName="EpgEpisodeTitle" Property="FontSize" Value="14"/>
+	
+    <Setter TargetName="TextStack" Property="VerticalAlignment" Value="Center"/>
+    
+    <Setter TargetName="EpgTitle" Property="FontWeight" Value="Bold"/>
+    <Setter TargetName="EpgTitle" Property="FontSize" Value="14"/>
+    
+    <Setter TargetName="EpgTitle" Property="Text" Value="{Binding Title}"/>
+</DataTrigger>
 </ControlTemplate.Triggers>
                                                         </ControlTemplate>
                                                     </Button.Template>
