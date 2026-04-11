@@ -157,6 +157,7 @@
                         <ComboBoxItem Content="A-Z (Alphabetical)" IsSelected="True"/>
                         <ComboBoxItem Content="Newest Added"/>
                         <ComboBoxItem Content="Release Year"/>
+						<ComboBoxItem Content="Recently Updated"/>
                     </ComboBox>
                 </Grid>
 

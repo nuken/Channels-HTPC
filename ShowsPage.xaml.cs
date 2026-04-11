@@ -124,9 +124,19 @@ namespace FeralCode
             if (WatchedBox.SelectedIndex == 1) filtered = filtered.Where(s => !s.IsWatched); 
             if (WatchedBox.SelectedIndex == 2) filtered = filtered.Where(s => s.IsWatched);  
 
-            if (SortBox.SelectedIndex == 0) filtered = filtered.OrderBy(s => s.Name);
-            else if (SortBox.SelectedIndex == 1) filtered = filtered.OrderByDescending(s => s.CreatedAt);
-            else if (SortBox.SelectedIndex == 2) filtered = filtered.OrderByDescending(s => s.ReleaseYear);
+            if (SortBox.SelectedIndex == 0) 
+                filtered = filtered.OrderBy(s => s.Name);
+            else if (SortBox.SelectedIndex == 1) 
+                filtered = filtered.OrderByDescending(s => s.CreatedAt);
+            else if (SortBox.SelectedIndex == 2) 
+                filtered = filtered.OrderByDescending(s => s.ReleaseYear);
+            else if (SortBox.SelectedIndex == 3) 
+            {
+                // --- NEW: Sort shows by looking at their episodes and finding the highest timestamp! ---
+                filtered = filtered.OrderByDescending(s => 
+                    _allEpisodes.Where(e => e.ShowId == s.Id)
+                                .Max(e => (long?)e.CreatedAt) ?? 0);
+            }
 
             RenderShowsGrid(filtered.ToList());
         }

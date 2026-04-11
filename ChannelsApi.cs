@@ -786,5 +786,6 @@ public bool IsExactMatch(string query)
         [System.Text.Json.Serialization.JsonPropertyName("tags")] public List<string>? Tags { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("cast")] public List<string>? Cast { get; set; }
         [System.Text.Json.Serialization.JsonPropertyName("full_summary")] public string? FullSummary { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("created_at")] public long CreatedAt { get; set; }
     }
 }
