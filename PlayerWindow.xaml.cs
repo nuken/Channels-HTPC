@@ -814,6 +814,96 @@ namespace FeralCode
         {
             OpenSubtitlesMenu();
         }
+		
+		public void ToggleAudioTrack()
+        {
+            if (_mediaPlayer == null) return;
+
+            var tracks = _mediaPlayer.AudioTrackDescription;
+            if (tracks == null || tracks.Length <= 1)
+            {
+                ShowActionOverlay("🚫 No Other Audio Available");
+                return;
+            }
+
+            int currentId = _mediaPlayer.AudioTrack;
+            
+            int currentIndex = 0;
+            for (int i = 0; i < tracks.Length; i++)
+            {
+                if (tracks[i].Id == currentId)
+                {
+                    currentIndex = i;
+                    break;
+                }
+            }
+            
+            int nextIndex = (currentIndex + 1) % tracks.Length;
+            var nextTrack = tracks[nextIndex];
+            
+            _mediaPlayer.SetAudioTrack(nextTrack.Id);
+
+            string statusText = nextTrack.Id == -1 ? "Audio: Off" : $"Audio: {nextTrack.Name}";
+            ShowActionOverlay(statusText);
+        }
+
+        private void BtnAudio_Click(object sender, RoutedEventArgs e)
+        {
+            OpenAudioMenu();
+        }
+
+        private void OpenAudioMenu()
+        {
+            if (_mediaPlayer == null) return;
+
+            var tracks = _mediaPlayer.AudioTrackDescription;
+            if (tracks == null || tracks.Length <= 1)
+            {
+                ShowActionOverlay("🚫 No Other Audio Available");
+                return;
+            }
+
+            ContextMenu audioMenu = new ContextMenu();
+            
+            audioMenu.Background = (System.Windows.Media.Brush)Application.Current.FindResource("PanelBackground");
+            audioMenu.Foreground = (System.Windows.Media.Brush)Application.Current.FindResource("TextPrimary");
+            audioMenu.BorderBrush = (System.Windows.Media.Brush)Application.Current.FindResource("BorderBrush");
+            audioMenu.BorderThickness = new Thickness(2);
+
+            int currentId = _mediaPlayer.AudioTrack;
+
+            foreach (var track in tracks)
+            {
+                MenuItem item = new MenuItem();
+                
+                item.Header = track.Id == -1 ? "Disable Audio" : $"Track: {track.Name}";
+                item.Tag = track.Id;
+                item.FontSize = 16;
+                item.Padding = new Thickness(10, 5, 10, 5);
+                
+                if (track.Id == currentId)
+                {
+                    item.IsChecked = true; 
+                    item.FontWeight = FontWeights.Bold;
+                }
+
+                item.Click += (s, args) =>
+                {
+                    int selectedId = (int)((MenuItem)s!).Tag;
+                    _mediaPlayer.SetAudioTrack(selectedId);
+                    
+                    string statusText = selectedId == -1 ? "Audio: Off" : $"Audio: {track.Name}";
+                    ShowActionOverlay(statusText);
+                };
+
+                audioMenu.Items.Add(item);
+            }
+
+            BtnAudio.ContextMenu = audioMenu;
+            audioMenu.PlacementTarget = BtnAudio;
+            audioMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
+            audioMenu.IsOpen = true;
+        }
 
         private void OpenSubtitlesMenu()
         {
@@ -1318,6 +1408,11 @@ namespace FeralCode
                 ToggleSubtitles();
                 e.Handled = true;
             }
+			else if (e.Key == System.Windows.Input.Key.A) 
+            {
+                ToggleAudioTrack();
+                e.Handled = true;
+            }
             else if (e.Key == System.Windows.Input.Key.Escape || e.Key == System.Windows.Input.Key.Back || e.Key == System.Windows.Input.Key.BrowserBack)
             {
                 if (_isFullscreen) 
@@ -1653,6 +1748,7 @@ namespace FeralCode
 
                 var stats = _mediaPlayer.Media.Statistics;
                 string resolution = "Unknown";
+                string audioInfo = "Unknown"; // NEW: To hold the audio channel count
                 
                 var tracks = _mediaPlayer.Media.Tracks;
                 if (tracks != null)
@@ -1662,13 +1758,19 @@ namespace FeralCode
                         if (t.TrackType == TrackType.Video)
                         {
                             resolution = $"{t.Data.Video.Width}x{t.Data.Video.Height}";
-                            break;
+                        }
+                        else if (t.TrackType == TrackType.Audio)
+                        {
+                            // NEW: Identify Stereo vs 5.1 Surround
+                            string channelType = t.Data.Audio.Channels >= 6 ? "5.1 Surround" : (t.Data.Audio.Channels == 2 ? "Stereo" : "Mono");
+                            audioInfo = $"{t.Data.Audio.Channels} ch {channelType} ({t.Data.Audio.Rate} Hz)";
                         }
                     }
                 }
                 
                 StatsText.Text = $"=== STATS FOR NERDS ===\n" +
                                  $"Resolution    : {resolution}\n" +
+                                 $"Audio Format  : {audioInfo}\n" + // NEW: Display it on the overlay!
                                  $"Input Bitrate : {Math.Round(stats.InputBitrate * 8000, 0):N0} bps\n" +
                                  $"Demux Bitrate : {Math.Round(stats.DemuxBitrate * 8000, 0):N0} bps\n" +
                                  $"Read Bytes    : {stats.ReadBytes / 1024 / 1024:N2} MB\n" +

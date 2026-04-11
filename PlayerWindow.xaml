@@ -111,7 +111,8 @@
                                 <Button Content="&#x23EA;" ToolTip="Rewind (-10s)" Foreground="White" FontSize="24" Background="Transparent" BorderThickness="0" Margin="0,0,20,0" Cursor="Hand" Click="Rewind_Click"/>
                                 <Button x:Name="BtnPlayPause" Content="&#x23F8;" Foreground="White" FontSize="28" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="PlayPause_Click"/>
                                 <Button Content="&#x23E9;" ToolTip="Fast Forward (+30s)" Foreground="White" FontSize="24" Background="Transparent" BorderThickness="0" Margin="20,0,0,0" Cursor="Hand" Click="FastForward_Click"/>
-                                <Button x:Name="BtnCC" Content="CC" FontSize="18" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Margin="10,0" Cursor="Hand" Click="BtnCC_Click" ToolTip="Toggle Closed Captions (C)"/>
+                                <Button x:Name="BtnAudio" Content="AUD" FontSize="16" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Margin="10,0,0,0" Cursor="Hand" Click="BtnAudio_Click" ToolTip="Change Audio Track (A)"/>
+								<Button x:Name="BtnCC" Content="CC" FontSize="18" FontWeight="Bold" Background="Transparent" Foreground="White" BorderThickness="0" Margin="10,0" Cursor="Hand" Click="BtnCC_Click" ToolTip="Toggle Closed Captions (C)"/>
 								<Button Content="&#xE72D;" ToolTip="Cast to TV (Win+K)" FontFamily="Segoe MDL2 Assets" Foreground="White" Background="Transparent" BorderThickness="0" FontSize="18" Margin="20,0,0,0" Cursor="Hand" Click="CastButton_Click"/>
                             </StackPanel>
 
