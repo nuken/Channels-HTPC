@@ -273,6 +273,39 @@ namespace FeralCode
     {
         [System.Text.Json.Serialization.JsonExtensionData]
         public Dictionary<string, System.Text.Json.JsonElement>? ExtraData { get; set; }
+		
+		private bool _favorite = false;
+        private bool _favoriteChecked = false;
+
+        // --- FIX: Ignore this during the strict JSON parse to prevent crashes! ---
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool Favorite 
+        {
+            get 
+            {
+                if (!_favoriteChecked && ExtraData != null)
+                {
+                    var match = ExtraData.FirstOrDefault(x => string.Equals(x.Key, "Favorite", StringComparison.OrdinalIgnoreCase));
+                    if (match.Key != null)
+                    {
+                        if (match.Value.ValueKind == System.Text.Json.JsonValueKind.True) _favorite = true;
+                        else if (match.Value.ValueKind == System.Text.Json.JsonValueKind.False) _favorite = false;
+                        else 
+                        {
+                            string val = match.Value.ToString().Trim();
+                            _favorite = string.Equals(val, "true", StringComparison.OrdinalIgnoreCase) || val == "1";
+                        }
+                    }
+                    _favoriteChecked = true;
+                }
+                return _favorite;
+            }
+            set 
+            {
+                _favorite = value;
+                _favoriteChecked = true;
+            }
+        }
 
         [System.Text.Json.Serialization.JsonPropertyName("___id")]
         public string Id => GetValue("id");
@@ -415,6 +448,35 @@ public bool IsExactMatch(string query)
                     if (el.TryGetProperty("logo", out var logo) && logo.ValueKind == JsonValueKind.String) return logo.GetString();
                 }
                 return null;
+            }
+        }
+		
+		[JsonIgnore]
+        public bool IsFavorite 
+        {
+            get 
+            {
+                if (!ChannelRaw.HasValue) return false;
+                var el = ChannelRaw.Value;
+                
+                if (el.ValueKind == JsonValueKind.Array)
+                {
+                    var e = el.EnumerateArray();
+                    if (e.MoveNext()) el = e.Current;
+                    else return false;
+                }
+                
+                if (el.ValueKind == JsonValueKind.Object)
+                {
+                    if (el.TryGetProperty("Favorite", out var fav))
+                    {
+                        if (fav.ValueKind == JsonValueKind.True) return true;
+                        if (fav.ValueKind == JsonValueKind.False) return false;
+                        string val = fav.ToString().Trim();
+                        return string.Equals(val, "true", StringComparison.OrdinalIgnoreCase) || val == "1";
+                    }
+                }
+                return false;
             }
         }
 

@@ -204,17 +204,7 @@ namespace FeralCode
             _settings.LastCollection = selectedName;
             SettingsManager.Save(_settings);
 
-            if (selectedName == "All Channels") _currentFilteredList = new List<Channel>(_masterChannelList);
-            else
-            {
-                var selectedCollection = _collections.FirstOrDefault(c => c.name == selectedName);
-                if (selectedCollection != null && selectedCollection.items != null)
-                {
-                    // --- FIX 2/3: Changed HasIdentifier to IsExactMatch when selecting a dropdown collection ---
-                    _currentFilteredList = _masterChannelList.Where(channel => selectedCollection.items.Any(item => channel.IsExactMatch(item))).ToList();
-                }
-            }
-
+            // ApplyFilters handles ALL the logic now, so we just call it!
             ApplyFilters(); 
         }
 
@@ -295,6 +285,9 @@ var cleanChannels = rawChannels
                     {
                         if (channel.Number != null && guideDict.TryGetValue(channel.Number.Trim(), out var guideData))
                         {
+                            // --- NEW: Inject the clean Favorite flag directly from the Guide payload! ---
+                            channel.Favorite = guideData.IsFavorite;
+
                             if (string.IsNullOrWhiteSpace(channel.ImageUrl) && !string.IsNullOrWhiteSpace(guideData.ChannelImageUrl))
                             {
                                 channel.ImageUrl = guideData.ChannelImageUrl;
@@ -337,6 +330,7 @@ var cleanChannels = rawChannels
                         _collections = await _api.GetChannelCollectionsAsync(baseUrl);
                         CollectionComboBox.Items.Clear();
                         CollectionComboBox.Items.Add("All Channels"); 
+                        CollectionComboBox.Items.Add("Favorites"); // --- NEW: Manually inject Favorites into the dropdown! ---
                         foreach (var collection in _collections) CollectionComboBox.Items.Add(collection.name);
 
                         if (!string.IsNullOrEmpty(_settings.LastCollection) && CollectionComboBox.Items.Contains(_settings.LastCollection))
@@ -391,7 +385,12 @@ var cleanChannels = rawChannels
             
             IEnumerable<Channel> filtered = _masterChannelList;
 
-            if (selectedCollectionName != "All Channels")
+            if (selectedCollectionName == "Favorites")
+            {
+                // --- NEW: Filter by the native Channels DVR Favorite flag ---
+                filtered = filtered.Where(c => c.Favorite);
+            }
+            else if (selectedCollectionName != "All Channels")
             {
                 var selectedCollection = _collections.FirstOrDefault(c => c.name == selectedCollectionName);
                 if (selectedCollection != null && selectedCollection.items != null)
