@@ -533,8 +533,8 @@ var cleanChannels = rawChannels
                     return;
                 }
             }
-			
-			// --- NEW: Routing from Top Menu DOWN to Tags ---
+            
+            // --- NEW: Routing from Top Menu DOWN to Tags ---
             if (isFocusedOnTopMenu && e.Key == System.Windows.Input.Key.Down)
             {
                 e.Handled = true;
@@ -582,40 +582,9 @@ var cleanChannels = rawChannels
                 }
             }
 
+            // === THE SMART LEFT/RIGHT WARP LOGIC ===
             if (e.Key == System.Windows.Input.Key.Left || e.Key == System.Windows.Input.Key.Right)
             {
-                if (e.Key == System.Windows.Input.Key.Left)
-                {
-                    if ((DateTime.Now - _lastLeftKeyPressTime).TotalMilliseconds < 150)
-                    {
-                        e.Handled = true;
-                        
-                        if (_displayedChannels.Count > 0)
-                        {
-                            var safeAirings = _displayedChannels[0].CurrentAirings ?? new List<Airing>();
-                            var firstAiring = safeAirings.FirstOrDefault();
-                            
-                            if (firstAiring != null)
-                            {
-                                var targetBtn = FindButtonForAiring(GuideItemsControl, firstAiring);
-                                targetBtn?.Focus();
-                            }
-                        }
-
-                        Dispatcher.BeginInvoke(new Action(() => 
-                        {
-                            var guideScroll = GetScrollViewer(GuideItemsControl);
-                            if (guideScroll != null) guideScroll.ScrollToVerticalOffset(0);
-                            
-                            if (TimelineScroller != null) TimelineScroller.ScrollToHorizontalOffset(0);
-                            
-                        }), System.Windows.Threading.DispatcherPriority.Background);
-
-                        return;
-                    }
-                    _lastLeftKeyPressTime = DateTime.Now;
-                }
-
                 if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.Button btn && btn.Tag is Airing currentAiring)
                 {
                     e.Handled = true; 
@@ -634,6 +603,51 @@ var cleanChannels = rawChannels
                             var targetBtn = FindButtonForAiring(GuideItemsControl, targetAiring);
                             targetBtn?.Focus();
                         }
+                        // --- NEW: If they hit Left while already on the leftmost show, bounce to top! ---
+                        else if (nextIndex < 0 && e.Key == System.Windows.Input.Key.Left)
+                        {
+                            if (_displayedChannels.Count > 0)
+                            {
+                                var firstAiring = _displayedChannels[0].CurrentAirings?.FirstOrDefault();
+                                if (firstAiring != null)
+                                {
+                                    var targetBtn = FindButtonForAiring(GuideItemsControl, firstAiring);
+                                    targetBtn?.Focus();
+                                }
+                            }
+                            Dispatcher.BeginInvoke(new Action(() => 
+                            {
+                                var guideScroll = GetScrollViewer(GuideItemsControl);
+                                if (guideScroll != null) guideScroll.ScrollToVerticalOffset(0);
+                                if (TimelineScroller != null) TimelineScroller.ScrollToHorizontalOffset(0);
+                            }), System.Windows.Threading.DispatcherPriority.Background);
+                        }
+                    }
+
+                    // --- Double-Tap / Hold Warp Logic ---
+                    if (e.Key == System.Windows.Input.Key.Left)
+                    {
+                        // Increase to 400ms for mobile network latency, and explicitly check for physical remote holds (IsRepeat).
+                        // ONLY warp if they are in the "Live" column, protecting normal fast-scrolling in the timeline!
+                        if (e.IsRepeat || (currentAiring.IsAiringNow && (DateTime.Now - _lastLeftKeyPressTime).TotalMilliseconds < 400))
+                        {
+                            if (_displayedChannels.Count > 0)
+                            {
+                                var firstAiring = _displayedChannels[0].CurrentAirings?.FirstOrDefault();
+                                if (firstAiring != null)
+                                {
+                                    var targetBtn = FindButtonForAiring(GuideItemsControl, firstAiring);
+                                    targetBtn?.Focus();
+                                }
+                            }
+                            Dispatcher.BeginInvoke(new Action(() => 
+                            {
+                                var guideScroll = GetScrollViewer(GuideItemsControl);
+                                if (guideScroll != null) guideScroll.ScrollToVerticalOffset(0);
+                                if (TimelineScroller != null) TimelineScroller.ScrollToHorizontalOffset(0);
+                            }), System.Windows.Threading.DispatcherPriority.Background);
+                        }
+                        _lastLeftKeyPressTime = DateTime.Now;
                     }
                     return;
                 }
