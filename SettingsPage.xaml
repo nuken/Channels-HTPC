@@ -223,7 +223,7 @@
                     <StackPanel HorizontalAlignment="Left" Width="600" Margin="10,10,0,10">
                         <TextBlock Text="Playback Preferences" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,15"/>
                         <CheckBox x:Name="AutoSkipCheckBox" Content="Auto-Skip Commercials in Movies" Style="{StaticResource BigCheckBox}"/>
-                        <CheckBox x:Name="FullscreenCheckBox" Content="Start Players in Fullscreen Mode" Style="{StaticResource BigCheckBox}"/>
+                        <CheckBox x:Name="FullscreenCheckBox" Content="Start in Fullscreen Mode" Style="{StaticResource BigCheckBox}"/>
 <CheckBox x:Name="MinimizeOnPlayCheckBox" Content="Minimize Base App Instead of Hiding When Playing" Style="{StaticResource BigCheckBox}"/>
                         <CheckBox x:Name="ForceLocalTranscodeCheckBox" 
                   Content="Force Local FFmpeg Transcode (Proxy All Channels)" 
