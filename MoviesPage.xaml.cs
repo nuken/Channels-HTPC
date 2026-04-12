@@ -287,7 +287,7 @@ namespace FeralCode
             {
                 string baseUrl = _settings.LastServerAddress;
 
-                string streamUrl = $"{baseUrl.TrimEnd('/')}/dvr/files/{_selectedMovie.Id}/hls/master.m3u8?vcodec=copy&acodec=copy";
+                string streamUrl = $"{baseUrl.TrimEnd('/')}/dvr/files/{_selectedMovie.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
                 
                 var mainWindow = (MainWindow)Application.Current.MainWindow;
                 if (mainWindow.ActivePlayerWindow != null) mainWindow.ActivePlayerWindow.Close();

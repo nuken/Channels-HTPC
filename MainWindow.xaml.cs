@@ -102,7 +102,7 @@ namespace FeralCode
                 "--avcodec-threads=0",  
                 "--network-caching=3000",
                 "--live-caching=3000",
-                "--file-caching=3000",
+                "--file-caching=3000"
                 
             );
 
@@ -607,7 +607,7 @@ namespace FeralCode
                         {
                             Application.Current.Dispatcher.Invoke(() => 
                             {
-                                string streamUrl = $"{settings.LastServerAddress.TrimEnd('/')}/dvr/files/{selectedMovie.Id}/hls/master.m3u8?vcodec=copy&acodec=copy";
+                                string streamUrl = $"{settings.LastServerAddress.TrimEnd('/')}/dvr/files/{selectedMovie.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
                                 
                                 if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
 
@@ -720,7 +720,7 @@ namespace FeralCode
                         {
                             Application.Current.Dispatcher.Invoke(() => 
                             {
-                                string streamUrl = $"{settings.LastServerAddress.TrimEnd('/')}/dvr/files/{ep.Id}/hls/master.m3u8?vcodec=copy&acodec=copy";
+                                string streamUrl = $"{settings.LastServerAddress.TrimEnd('/')}/dvr/files/{ep.Id}/stream.mpg?format=ts&vcodec=copy&acodec=copy";
                                 string displayTitle = $"{ep.Title} - S{ep.SeasonNumber:D2}E{ep.EpisodeNumber:D2} - {ep.EpisodeTitle}";
                                 
                                 if (ActivePlayerWindow != null) ActivePlayerWindow.Close();
