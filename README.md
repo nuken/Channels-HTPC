@@ -1,4 +1,4 @@
-# Feral HTPC (Version 1.1.0-beta)
+# Feral HTPC (Version 1.1.1-beta)
 
 Feral HTPC is a dedicated, feature-rich desktop client designed specifically for Home Theater PCs (HTPCs) running Windows. It interfaces directly with your Channels DVR server to provide a seamless, controller-friendly interface for Live TV, Movies, and external streaming services. 
 
@@ -78,6 +78,27 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 * **Media Keys:** Play/Pause, Stop, Mute, Volume Up, Volume Down are natively supported.
 
 # Changelog
+
+## [1.1.1]
+
+### New Features & Enhancements
+* **App Fullscreen Mode:** The main browsing interface can now be launched in borderless fullscreen (Toggle anytime using `F`, `F11`, or `ESC`).
+* **Smart Sorting:** Added a "Recently Updated" sorting option for TV Shows that pushes newly recorded broadcasts to the top of the list.
+
+### Performance (The "Huge Library" Update)
+* **Fast UI:** Implemented Lazy Loading (pagination) for both the Movies and TV Shows pages. The app now instantly renders libraries with 3,000+ items without freezing or crashing.
+
+### Live TV & Player Improvements
+* **Surround Sound Fix:** Bypassed the DVR's HLS constraints to ensure 5.1/7.1 Dolby Digital and raw AAC audio tracks are sent to the player untouched. 
+* **Stutter Fix:** Removed WASAPI audio locks that were causing video stutters and "decoder reloads" during broadcast commercial breaks.
+* **Faster Tuning:** Optimized the TimeShift buffer to load channels onto the screen nearly twice as fast.
+* **Web Stream Fixes:** Improved the FFmpeg proxy to prevent hanging on Pluto/TVE streams, and increased the tuning timeout to accommodate slow-loading web channels.
+* **Graceful Fallbacks:** If a live channel's TimeShift buffer fails to initialize, the app will now automatically alert the user and seamlessly fall back to Direct Streaming instead of crashing.
+
+### Bug Fixes
+* Fixed a race-condition bug that caused the screen to occasionally load completely blank until a filter was clicked.
+* Fixed a bug where VLC's internal clock would drift and drop frames due to imperfect broadcast timestamps.
+* Fixed a bug where scrolling too fast on large monitors would break the page loader.
 
 ## [1.1.0] 
 
