@@ -1068,54 +1068,6 @@ namespace FeralCode
                         UiChannelLogo.Source = null;
                 }
                 catch { UiChannelLogo.Source = null; }
-                
-                string streamUrl = "";
-                int offsetSeconds = 0;
-                // Use the proxy if the global setting is checked OR if this specific channel was right-clicked and flagged
-                bool useProxy = _settings.ForceLocalTranscode || 
-                (_settings.ForcedFfmpegChannels != null && _settings.ForcedFfmpegChannels.Contains(currentChannel.Number!));
-                if (_settings.EnableTimeShiftBuffer) useProxy = false;
-				string audioCodec = "copy"; 
-
-                bool isVirtualChannel = currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase);
-
-                if (isVirtualChannel)
-                {
-                    LogDebug("PlayCurrentChannel: Virtual channel detected.");
-                    if (currentAiring != null && !string.IsNullOrWhiteSpace(currentAiring.Source))
-                    {
-                        string fileId = currentAiring.Source.Split('/').Last(); 
-                        streamUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{fileId}/hls/stream.m3u8";
-                        
-                        offsetSeconds = (int)(DateTime.Now - currentAiring.StartTime).TotalSeconds;
-                        if (offsetSeconds < 0) offsetSeconds = 0;
-                        
-                        useProxy = false; 
-                    }
-                    else
-                    {
-                        MessageBox.Show("No active media is scheduled for this Virtual Channel right now.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                        this.Close();
-                        return;
-                    }
-                }
-                else
-                {
-                    // --- ABANDONED HLS FALLBACK. REVERTED TO RAW TS FOR ALL LIVE CHANNELS ---
-                    var settings = SettingsManager.Load();
-                    audioCodec = "aac"; 
-
-                    if (!settings.ForceAacAudio)
-                    {
-                        audioCodec = "copy";
-                        if (double.TryParse(currentChannel.Number, out double chNum) && chNum >= 100 && chNum < 200)
-                            audioCodec = "aac";
-                    }
-
-                    streamUrl = $"{_baseUrl.TrimEnd('/')}/devices/ANY/channels/{currentChannel.Number}/stream.mpg?format=ts&vcodec=copy&acodec={audioCodec}";
-                }
-                
-                LogDebug($"PlayCurrentChannel: Final Stream URL: {streamUrl}");
 
                 if (_mediaPlayer.IsPlaying) 
                 {
@@ -1124,95 +1076,6 @@ namespace FeralCode
                 }
 
                 CleanupSpooler();
-
-                string activeStreamUrl = streamUrl;
-
-                if (useProxy)
-                {
-                    LogDebug("Routing stream through FFmpeg proxy to normalize formats.");
-                    activeStreamUrl = await StartFfmpegProxyAsync(streamUrl, offsetSeconds, audioCodec);
-                    
-                    if (string.IsNullOrEmpty(activeStreamUrl))
-                    {
-                        MessageBox.Show("Failed to start the proxy stream. The signal may be dead or took too long to load.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                        this.Close();
-                        return;
-                    }
-                }
-
-                if (_settings.EnableTimeShiftBuffer && !isVirtualChannel)
-                {
-                    LogDebug("PlayCurrentChannel: Time-Shift enabled. Starting FFmpeg HLS Spooler.");
-                    
-                    LoadingOverlay.Visibility = Visibility.Visible;
-                    LoadingText.Text = "Buffering Live Stream...";
-
-                    // Start FFmpeg and get the path to the local .m3u8 file
-                    string m3u8LocalPath = await StartTimeShiftFfmpegAsync(activeStreamUrl, audioCodec);
-
-                    if (string.IsNullOrEmpty(m3u8LocalPath))
-                    {
-                        MessageBox.Show("Failed to initialize TimeShift buffer.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                        this.Close();
-                        return;
-                    }
-
-                    // Feed the local playlist directly to VLC!
-                    _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(m3u8LocalPath));
-                    
-                    _currentMedia.AddOption(":network-caching=3000"); // Bumped up for fatter segments
-                    _currentMedia.AddOption(":live-caching=3000");
-                    _currentMedia.AddOption(":deinterlace=1");
-                    _currentMedia.AddOption(":deinterlace-mode=yadif");
-                    _currentMedia.AddOption(":avcodec-hw=none");
-
-                    // --- NEW: Apply Clock Leniency so VLC ignores wonky broadcast timestamps ---
-                    _currentMedia.AddOption(":clock-jitter=5000");     
-                    _currentMedia.AddOption(":no-ts-cc-check");         
-                    _currentMedia.AddOption(":no-ts-trust-pcr");       
-                    _currentMedia.AddOption(":clock-synchro=0");
-                }
-                else
-                {
-                    LogDebug("PlayCurrentChannel: Streaming directly.");
-                    
-                    _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(activeStreamUrl));
-                    _currentMedia.AddOption(":network-caching=3000");
-                    _currentMedia.AddOption(":live-caching=3000");
-                    _currentMedia.AddOption(":deinterlace=1");
-                    _currentMedia.AddOption(":deinterlace-mode=yadif");
-                    
-                    // --- TIER 1: GLOBAL LENIENCY (Helps Pluto/TVE survive commercial breaks) ---
-                    LogDebug("Applying global stream leniency flags.");
-                    _currentMedia.AddOption(":clock-jitter=5000");      // Integer value, so =5000 is correct
-                    _currentMedia.AddOption(":no-ts-cc-check");         // Boolean flag (False)
-                    // _currentMedia.AddOption(":no-drop-late-frames");    // Boolean flag (False)
-                    // _currentMedia.AddOption(":no-skip-frames");         // Boolean flag (False)
-                    _currentMedia.AddOption(":no-avcodec-hurry-up");    // Boolean flag (False)
-                    
-                    // --- TIER 2: THE TRUE NUCLEAR OPTION (Only for broken antenna clocks) ---
-                    if (currentChannel.Number != null && currentChannel.Number.Contains("."))
-                    {
-                        LogDebug("Applying strict clock overrides for OTA broadcast.");
-                        _currentMedia.AddOption(":no-ts-trust-pcr");       
-                        _currentMedia.AddOption(":no-ts-seek-percent");    
-                        _currentMedia.AddOption(":clock-synchro=0");       
-                        
-                        // NEW: Forcing OTA to never drop frames due to broadcast jitter
-                        _currentMedia.AddOption(":no-drop-late-frames");    
-                        _currentMedia.AddOption(":no-skip-frames"); 
-                    }
-                }
-
-                _currentMedia.AddOption(":avcodec-hw=none");
-                _currentMedia.AddOption(":no-spu");
-                _currentMedia.AddOption(":no-sub-autodetect-file");
-                _currentMedia.AddOption(":freetype-rel-fontsize=12");
-
-                if (offsetSeconds > 0 && !useProxy)
-                {
-                    _currentMedia.AddOption($":start-time={offsetSeconds}");
-                }
 
                 LoadingOverlay.Visibility = Visibility.Visible;
                 LoadingText.Text = "Connecting...";
@@ -1235,7 +1098,21 @@ namespace FeralCode
                 _tuneTimeoutTimer?.Stop();
                 _tuneTimeoutTimer?.Start();
 
-                _mediaPlayer.Play(_currentMedia);
+                // --- THE NEW ROUTING LOGIC ---
+                // You can easily change this IF statement in the future to test different channels!
+                bool isVirtualChannel = currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase);
+                bool isPluto = currentChannel.Id != null && currentChannel.Id.Contains("pluto", StringComparison.OrdinalIgnoreCase);
+
+                if (isVirtualChannel || isPluto)
+                {
+                    LogDebug("Routing to PlayHlsStream...");
+                    await PlayHlsStream(currentChannel, currentAiring);
+                }
+                else
+                {
+                    LogDebug("Routing to PlayTsStream...");
+                    await PlayTsStream(currentChannel, currentAiring);
+                }
             }
             catch (Exception ex)
             {
@@ -1243,6 +1120,150 @@ namespace FeralCode
                 MessageBox.Show($"Failed to load channel: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 this.Close();
             }
+        }
+
+        private Task PlayHlsStream(Channel currentChannel, Airing? currentAiring)
+        {
+            string streamUrl = "";
+            int offsetSeconds = 0;
+            bool isVirtualChannel = currentChannel.Id != null && currentChannel.Id.StartsWith("virtual", StringComparison.OrdinalIgnoreCase);
+
+            if (isVirtualChannel)
+            {
+                LogDebug("PlayHlsStream: Virtual channel detected.");
+                if (currentAiring != null && !string.IsNullOrWhiteSpace(currentAiring.Source))
+                {
+                    string fileId = currentAiring.Source.Split('/').Last(); 
+                    streamUrl = $"{_baseUrl.TrimEnd('/')}/dvr/files/{fileId}/hls/stream.m3u8";
+                    
+                    offsetSeconds = (int)(DateTime.Now - currentAiring.StartTime).TotalSeconds;
+                    if (offsetSeconds < 0) offsetSeconds = 0;
+                }
+                else
+                {
+                    MessageBox.Show("No active media is scheduled for this Virtual Channel right now.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    this.Close();
+                    return Task.CompletedTask;
+                }
+            }
+            else
+            {
+                LogDebug("PlayHlsStream: Standard Live HLS detected.");
+                // Request the pre-packaged HLS live stream directly from Channels DVR
+                streamUrl = $"{_baseUrl.TrimEnd('/')}/devices/ANY/channels/{currentChannel.Number}/hls/master.m3u8";
+            }
+            
+            LogDebug($"PlayHlsStream: Final HLS URL: {streamUrl}");
+
+            _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(streamUrl));
+            _currentMedia.AddOption(":network-caching=3000");
+            _currentMedia.AddOption(":live-caching=3000");
+            _currentMedia.AddOption(":deinterlace=1");
+            _currentMedia.AddOption(":deinterlace-mode=yadif");
+            _currentMedia.AddOption(":avcodec-hw=none");
+            _currentMedia.AddOption(":no-spu");
+            _currentMedia.AddOption(":no-sub-autodetect-file");
+            _currentMedia.AddOption(":freetype-rel-fontsize=12");
+
+            if (offsetSeconds > 0)
+            {
+                _currentMedia.AddOption($":start-time={offsetSeconds}");
+            }
+
+            _mediaPlayer.Play(_currentMedia);
+            return Task.CompletedTask;
+        }
+
+        private async Task PlayTsStream(Channel currentChannel, Airing? currentAiring)
+        {
+            var settings = SettingsManager.Load();
+            string audioCodec = "aac"; 
+
+            if (!settings.ForceAacAudio)
+            {
+                audioCodec = "copy";
+                if (double.TryParse(currentChannel.Number, out double chNum) && chNum >= 100 && chNum < 200)
+                    audioCodec = "aac";
+            }
+
+            string streamUrl = $"{_baseUrl.TrimEnd('/')}/devices/ANY/channels/{currentChannel.Number}/stream.mpg?format=ts&vcodec=copy&acodec={audioCodec}";
+            LogDebug($"PlayTsStream: Final Stream URL: {streamUrl}");
+
+            string activeStreamUrl = streamUrl;
+            
+            bool useProxy = _settings.ForceLocalTranscode || 
+            (_settings.ForcedFfmpegChannels != null && _settings.ForcedFfmpegChannels.Contains(currentChannel.Number!));
+            
+            if (_settings.EnableTimeShiftBuffer) useProxy = false;
+
+            if (useProxy)
+            {
+                LogDebug("Routing stream through FFmpeg proxy to normalize formats.");
+                activeStreamUrl = await StartFfmpegProxyAsync(streamUrl, 0, audioCodec);
+                
+                if (string.IsNullOrEmpty(activeStreamUrl))
+                {
+                    MessageBox.Show("Failed to start the proxy stream. The signal may be dead or took too long to load.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    this.Close();
+                    return;
+                }
+            }
+
+            if (_settings.EnableTimeShiftBuffer)
+            {
+                LogDebug("PlayTsStream: Time-Shift enabled. Starting FFmpeg HLS Spooler.");
+                string m3u8LocalPath = await StartTimeShiftFfmpegAsync(activeStreamUrl, audioCodec);
+
+                if (string.IsNullOrEmpty(m3u8LocalPath))
+                {
+                    MessageBox.Show("Failed to initialize TimeShift buffer.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    this.Close();
+                    return;
+                }
+
+                _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(m3u8LocalPath));
+                _currentMedia.AddOption(":network-caching=3000"); 
+                _currentMedia.AddOption(":live-caching=3000");
+                _currentMedia.AddOption(":deinterlace=1");
+                _currentMedia.AddOption(":deinterlace-mode=yadif");
+                _currentMedia.AddOption(":avcodec-hw=none");
+
+                _currentMedia.AddOption(":clock-jitter=5000");     
+                _currentMedia.AddOption(":no-ts-cc-check");         
+                _currentMedia.AddOption(":no-ts-trust-pcr");       
+                _currentMedia.AddOption(":clock-synchro=0");
+            }
+            else
+            {
+                LogDebug("PlayTsStream: Streaming directly.");
+                _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(activeStreamUrl));
+                _currentMedia.AddOption(":network-caching=3000");
+                _currentMedia.AddOption(":live-caching=3000");
+                _currentMedia.AddOption(":deinterlace=1");
+                _currentMedia.AddOption(":deinterlace-mode=yadif");
+                
+                LogDebug("Applying global stream leniency flags.");
+                _currentMedia.AddOption(":clock-jitter=5000");     
+                _currentMedia.AddOption(":no-ts-cc-check");         
+                _currentMedia.AddOption(":no-avcodec-hurry-up");    
+                
+                if (currentChannel.Number != null && currentChannel.Number.Contains("."))
+                {
+                    LogDebug("Applying strict clock overrides for OTA broadcast.");
+                    _currentMedia.AddOption(":no-ts-trust-pcr");       
+                    _currentMedia.AddOption(":no-ts-seek-percent");    
+                    _currentMedia.AddOption(":clock-synchro=0");       
+                    _currentMedia.AddOption(":no-drop-late-frames");    
+                    _currentMedia.AddOption(":no-skip-frames"); 
+                }
+            }
+
+            _currentMedia.AddOption(":avcodec-hw=none");
+            _currentMedia.AddOption(":no-spu");
+            _currentMedia.AddOption(":no-sub-autodetect-file");
+            _currentMedia.AddOption(":freetype-rel-fontsize=12");
+
+            _mediaPlayer.Play(_currentMedia);
         }
 
         private void PlayPause_Click(object sender, RoutedEventArgs e)
