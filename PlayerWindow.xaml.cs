@@ -19,7 +19,7 @@ namespace FeralCode
         // --- NEW: Toggle this to false to disable logging! ---
         private bool _enableLogging;
         private Media? _currentMedia;
-        private string _timeShiftDir = ""; // NEW: Tracks the FFmpeg HLS folder so we can delete it!
+		private string _timeShiftDir = "";
         private System.Net.HttpListener? _hlsServer; // NEW: The micro web server!
 		private double _accumulatedScrubSeconds = 0;
         private MediaPlayer _mediaPlayer;
@@ -107,40 +107,26 @@ namespace FeralCode
         {
             StopFfmpegProxy();
 
-            // Grab references to the active objects
             var oldMedia = _currentMedia;
-            var oldServer = _hlsServer; // Capture the server
+            var oldServer = _hlsServer; // <--- ADD THIS
             var dirToDelete = _timeShiftDir;
 
-            // Clear the active pointers so the app can move on
             _currentMedia = null;
-            _hlsServer = null; 
+            _hlsServer = null; // <--- ADD THIS
             _timeShiftDir = "";
 
-            // Safely spin down threads AND delete the folder in the background
             _ = Task.Run(async () => 
             {
-                // Stop serving HTTP requests immediately
-                oldServer?.Stop();
-                oldServer?.Close();
+                oldServer?.Stop();  // <--- ADD THIS
+                oldServer?.Close(); // <--- ADD THIS
 
-                // Give VLC's native C-threads plenty of time to detach from the files
                 await Task.Delay(3000); 
                 
                 oldMedia?.Dispose();
 
-                // NOW safely delete the entire HLS directory after VLC releases it
                 if (!string.IsNullOrEmpty(dirToDelete) && Directory.Exists(dirToDelete))
                 {
-                    try
-                    {
-                        Directory.Delete(dirToDelete, true);
-                        LogDebug($"CleanupSpooler: Deleted TimeShift folder {dirToDelete}");
-                    }
-                    catch (Exception ex)
-                    {
-                        LogDebug($"CleanupSpooler: Could not delete TimeShift folder. {ex.Message}");
-                    }
+                    try { Directory.Delete(dirToDelete, true); } catch { }
                 }
             });
         }
@@ -290,15 +276,43 @@ namespace FeralCode
                             
                             if (File.Exists(filePath))
                             {
-                                // Tell VLC if it's reading the playlist or the video data
                                 if (requestPath.EndsWith(".m3u8")) context.Response.ContentType = "application/vnd.apple.mpegurl";
                                 else if (requestPath.EndsWith(".ts")) context.Response.ContentType = "video/MP2T";
 
-                                // Safely read the file even if FFmpeg is currently writing to it
                                 using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                                 {
-                                    context.Response.ContentLength64 = fs.Length;
-                                    await fs.CopyToAsync(context.Response.OutputStream);
+                                    // --- THE MAGIC: Handle HTTP Byte-Range Requests for Single-File HLS ---
+                                    if (context.Request.Headers.AllKeys.Contains("Range"))
+                                    {
+                                        var rangeHeader = context.Request.Headers["Range"];
+                                        var range = rangeHeader!.Replace("bytes=", "").Split('-');
+                                        long start = long.Parse(range[0]);
+                                        long end = range.Length > 1 && !string.IsNullOrWhiteSpace(range[1]) ? long.Parse(range[1]) : fs.Length - 1;
+                                        if (end >= fs.Length) end = fs.Length - 1;
+                                        long length = end - start + 1;
+
+                                        context.Response.StatusCode = 206; // 206 Partial Content
+                                        context.Response.Headers.Add("Content-Range", $"bytes {start}-{end}/{fs.Length}");
+                                        context.Response.ContentLength64 = length;
+
+                                        fs.Position = start;
+                                        byte[] buffer = new byte[64 * 1024];
+                                        long bytesRemaining = length;
+                                        while (bytesRemaining > 0)
+                                        {
+                                            int bytesToRead = (int)Math.Min(buffer.Length, bytesRemaining);
+                                            int bytesRead = await fs.ReadAsync(buffer, 0, bytesToRead);
+                                            if (bytesRead == 0) break;
+                                            await context.Response.OutputStream.WriteAsync(buffer, 0, bytesRead);
+                                            bytesRemaining -= bytesRead;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // Standard full-file request (for the .m3u8 playlist)
+                                        context.Response.ContentLength64 = fs.Length;
+                                        await fs.CopyToAsync(context.Response.OutputStream);
+                                    }
                                 }
                                 context.Response.OutputStream.Close();
                             }
@@ -308,11 +322,11 @@ namespace FeralCode
                                 context.Response.Close();
                             }
                         }
-                        catch { } // Ignore normal client disconnects
+                        catch { } // Ignore client disconnects
                     }
                 });
             }
-            catch (Exception ex) { LogDebug($"Failed to start local HLS server: {ex.Message}"); }
+            catch (Exception ex) { LogDebug($"Failed to start HLS server: {ex.Message}"); }
         }
 		
 		private async Task<string> StartTimeShiftFfmpegAsync(string sourceUrl, string targetAudioCodec)
@@ -320,13 +334,14 @@ namespace FeralCode
             await Task.Delay(150);
             StopFfmpegProxy(); 
 
-            // Create a dedicated folder for the segments
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             _timeShiftDir = System.IO.Path.Combine(appData, "FeralHTPC", "TimeShift", Guid.NewGuid().ToString("N"));
             System.IO.Directory.CreateDirectory(_timeShiftDir);
 
+            // --- THE FIX: Standard Discrete Chunk HLS ---
             string m3u8Path = System.IO.Path.Combine(_timeShiftDir, "live.m3u8");
-            string segmentPath = System.IO.Path.Combine(_timeShiftDir, "segment_%05d.ts");
+            string tsPattern = System.IO.Path.Combine(_timeShiftDir, "seg_%05d.ts"); // Creates seg_00001.ts, etc.
+            
             string localFfmpegPath = System.IO.Path.Combine(appData, "FeralHTPC", "ffmpeg", "ffmpeg.exe");
             string targetExecutable = System.IO.File.Exists(localFfmpegPath) ? localFfmpegPath : "ffmpeg";
 
@@ -335,8 +350,8 @@ namespace FeralCode
             var startInfo = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = targetExecutable, 
-               // Instructs FFmpeg to copy the video, normalize the audio, and output an infinite HLS playlist
-            Arguments = $"-nostdin -hide_banner -loglevel warning -analyzeduration 3000000 -probesize 3000000 -fflags +genpts+discardcorrupt -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -ignore_unknown -max_muxing_queue_size 4096 -c:v copy {audioArgs} -f hls -hls_time 4 -hls_list_size 0 -hls_playlist_type event -hls_segment_filename \"{segmentPath}\" \"{m3u8Path}\"",
+                // Removed single_file. Added -hls_list_size 0 (Infinite TimeShift Playlist)
+                Arguments = $"-nostdin -hide_banner -loglevel warning -analyzeduration 1500000 -probesize 1500000 -fflags +genpts+discardcorrupt -i \"{sourceUrl}\" -map 0:V:0? -map 0:a:0? -ignore_unknown -max_muxing_queue_size 4096 -c:v copy {audioArgs} -f hls -hls_time 2 -hls_list_size 0 -hls_segment_filename \"{tsPattern}\" \"{m3u8Path}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardError = true
@@ -345,57 +360,48 @@ namespace FeralCode
             _ffmpegProcess = new System.Diagnostics.Process { StartInfo = startInfo };
             _ffmpegProcess.EnableRaisingEvents = true; 
             
-            // NEW: Capture FFmpeg's internal errors and write them to your log file!
             _ffmpegProcess.ErrorDataReceived += (s, e) => 
             {
                 if (!string.IsNullOrWhiteSpace(e.Data)) LogDebug($"[FFMPEG-TS] {e.Data}");
             };
 
             _ffmpegProcess.Start();
-            _ffmpegProcess.BeginErrorReadLine(); // MUST call this to start reading the stream
+            _ffmpegProcess.BeginErrorReadLine(); 
             
-            LogDebug($"Started FFmpeg TimeShift Engine. Writing to {_timeShiftDir}");
+            LogDebug($"Started FFmpeg TimeShift Engine (Discrete HLS). Writing to {_timeShiftDir}");
 
-            // --- NEW: Start our local web server to host the folder for VLC! ---
-            int dynamicPort = GetAvailablePort();
-            StartHlsServer(_timeShiftDir, dynamicPort);
-            string localHlsUrl = $"http://127.0.0.1:{dynamicPort}/live.m3u8";
-
-            // Wait for FFmpeg to generate a healthy buffer (at least 2 segments)
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            
-            // --- FIX: Increased timeout to 35 seconds to allow TVE/Web streams to tune! ---
             while (sw.ElapsedMilliseconds < 35000) 
             {
                 if (System.IO.File.Exists(m3u8Path))
                 {
                     try
                     {
-                        // Safely read the playlist while FFmpeg is writing to it
                         using (var fs = new FileStream(m3u8Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                         using (var sr = new StreamReader(fs))
                         {
                             string content = await sr.ReadToEndAsync();
                             
-                            // Count how many video segments FFmpeg has finished writing
-                            int segmentCount = content.Split(new string[] { ".ts" }, StringSplitOptions.None).Length - 1;
+                            // Count how many .ts segments have been successfully written to the playlist
+                            int segmentCount = content.Split(new[] { ".ts" }, StringSplitOptions.None).Length - 1;
                             
-                            // --- FIX: Reduced to 2 segments (8 seconds of buffer) so channels load faster ---
-                            if (segmentCount >= 2) 
+                            // Wait for at least 4 chunks (8+ seconds of video) to guarantee a stutter-free launch
+                            if (segmentCount >= 4)
                             {
-                                return localHlsUrl; 
+                                int dynamicPort = GetAvailablePort();
+                                StartHlsServer(_timeShiftDir, dynamicPort);
+                                return $"http://127.0.0.1:{dynamicPort}/live.m3u8"; 
                             }
                         }
                     }
-                    catch { } // Ignore read collisions, just wait and loop again
+                    catch { } // Ignore file lock collisions
                 }
                 await Task.Delay(250);
             }
 
             StopFfmpegProxy();
             return "";
-			
-		}
+        }
 		
         private void StopFfmpegProxy()
         {
@@ -1231,28 +1237,9 @@ namespace FeralCode
             (_settings.ForcedFfmpegRemuxChannels != null && _settings.ForcedFfmpegRemuxChannels.Contains(currentChannel.Number!));
             
             // TimeShift has its own FFmpeg engine, so disable standard proxy if TimeShift is on
-            if (_settings.EnableTimeShiftBuffer) 
-            {
-                useTranscode = false;
-                useRemux = false;
-            }
-
-            if (useTranscode || useRemux)
-            {
-                LogDebug($"Routing stream through FFmpeg proxy (Transcode: {useTranscode}).");
-                activeStreamUrl = await StartFfmpegProxyAsync(streamUrl, 0, audioCodec, useTranscode);
-                
-                if (string.IsNullOrEmpty(activeStreamUrl))
-                {
-                    MessageBox.Show("Failed to start the proxy stream. The signal may be dead or took too long to load.", "Playback Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    this.Close();
-                    return;
-                }
-            }
-
             if (_settings.EnableTimeShiftBuffer)
             {
-                LogDebug("PlayTsStream: Time-Shift enabled. Starting FFmpeg HLS Spooler.");
+                LogDebug("PlayTsStream: Time-Shift enabled. Starting FFmpeg Spooler.");
                 string m3u8LocalPath = await StartTimeShiftFfmpegAsync(activeStreamUrl, audioCodec);
 
                 if (string.IsNullOrEmpty(m3u8LocalPath))
@@ -1263,16 +1250,18 @@ namespace FeralCode
                 }
 
                 _currentMedia = new Media(MainWindow.SharedLibVLC, new Uri(m3u8LocalPath));
-                _currentMedia.AddOption(":network-caching=3000"); 
-                _currentMedia.AddOption(":live-caching=3000");
+
+                // --- TWEAK: Increased cache from 3000 to 8000 to absorb live-edge updates! ---
+                _currentMedia.AddOption(":network-caching=8000"); 
+                _currentMedia.AddOption(":live-caching=8000");
+                
                 _currentMedia.AddOption(":deinterlace=1");
                 _currentMedia.AddOption(":deinterlace-mode=yadif");
                 _currentMedia.AddOption(":avcodec-hw=none");
 
                 _currentMedia.AddOption(":clock-jitter=5000");     
                 _currentMedia.AddOption(":no-ts-cc-check");         
-                _currentMedia.AddOption(":no-ts-trust-pcr");       
-                _currentMedia.AddOption(":clock-synchro=0");
+                _currentMedia.AddOption(":no-avcodec-hurry-up");    
             }
             else
             {
