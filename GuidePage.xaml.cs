@@ -150,35 +150,56 @@ namespace FeralCode
     ShowStatus("Scanning network for DVR servers...", "StatusConnecting");
 
     var discoveredServers = await _api.DiscoverDvrServersAsync();
+    ServerComboBox.Items.Clear();
 
-    if (discoveredServers.Any())
+    // 1. Add dynamically discovered local servers
+    foreach (var server in discoveredServers)
     {
-        foreach (var server in discoveredServers)
+        ServerComboBox.Items.Add(server);
+    }
+    
+    // 2. Add saved manual servers that weren't broadcasted via Zeroconf
+    foreach (var savedIp in _settings.SavedServers)
+    {
+        if (!discoveredServers.Any(s => s.BaseUrl.Equals(savedIp, StringComparison.OrdinalIgnoreCase)))
         {
-            ServerComboBox.Items.Add(server);
+            // Parse the saved URL string back into an IP and Port
+            string parsedIp = savedIp;
+            int parsedPort = 8089;
+            
+            try 
+            {
+                if (Uri.TryCreate(savedIp, UriKind.Absolute, out var uri))
+                {
+                    parsedIp = uri.Host;
+                    parsedPort = uri.Port > 0 ? uri.Port : 8089;
+                }
+            }
+            catch { }
+
+            // Create a mock DvrServer object so the ComboBox displays it properly
+            ServerComboBox.Items.Add(new DvrServer 
+            { 
+                Ip = parsedIp,
+                Port = parsedPort,
+                Name = "Saved Server" 
+            });
         }
-        
-        // --- NEW: Select the last used server if it was found, otherwise default to the first one ---
-        var match = discoveredServers.FirstOrDefault(s => s.BaseUrl == _settings.LastServerAddress);
+    }
+
+    if (ServerComboBox.Items.Count > 0)
+    {
+        // Select the last used server, or default to the first in the list
+        var match = ServerComboBox.Items.OfType<DvrServer>().FirstOrDefault(s => s.BaseUrl == _settings.LastServerAddress);
         if (match != null) ServerComboBox.SelectedItem = match;
         else ServerComboBox.SelectedIndex = 0; 
         
-        ShowStatus($"Found {discoveredServers.Count} server(s).", "StatusSuccess");
+        ShowStatus("Ready.", "StatusSuccess");
         LoadData_Click(this, new RoutedEventArgs());
     }
     else
     {
-        // --- NEW: Fallback to the saved IP if network discovery fails ---
-        if (!string.IsNullOrWhiteSpace(_settings.LastServerAddress))
-        {
-            ServerComboBox.Text = _settings.LastServerAddress;
-            ShowStatus("Using saved server address...", "StatusConnecting");
-            LoadData_Click(this, new RoutedEventArgs());
-        }
-        else
-        {
-            ShowStatus("No servers found. Please enter IP manually.", "StatusError");
-        }
+        ShowStatus("No servers found. Please enter IP manually.", "StatusError");
     }
 }
                      
@@ -215,11 +236,27 @@ namespace FeralCode
             string baseUrl = "";
             string rawInput = ServerComboBox.Text.Trim();
 
-            if (ServerComboBox.SelectedItem is DvrServer selectedServer) baseUrl = selectedServer.BaseUrl;
-           else if (!string.IsNullOrWhiteSpace(rawInput))
+            if (ServerComboBox.SelectedItem is DvrServer selectedServer) 
     {
-        if (!rawInput.Contains(":")) rawInput += ":8089";
-        if (!rawInput.StartsWith("http")) rawInput = "http://" + rawInput;
+        baseUrl = selectedServer.BaseUrl;
+    }
+    else if (!string.IsNullOrWhiteSpace(rawInput))
+    {
+        // 1. Ensure it has a protocol so the URL parser doesn't break
+        if (!rawInput.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && 
+            !rawInput.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            rawInput = "http://" + rawInput;
+        }
+
+        // 2. Check for a colon explicitly AFTER the "http://"
+        // If there isn't one, append the 8089 default. If there is, respect the user's custom port!
+        int colonIndex = rawInput.IndexOf(':', rawInput.IndexOf("://") + 3);
+        if (colonIndex == -1)
+        {
+            rawInput += ":8089";
+        }
+        
         baseUrl = rawInput;
     }
     else
@@ -229,9 +266,13 @@ namespace FeralCode
         return;
     }
 
-    // --- NEW: Automatically save the successfully used IP so it persists across restarts ---
-    _settings.LastServerAddress = baseUrl;
-    SettingsManager.Save(_settings);
+    // NEW: Automatically save the successfully used IP so it persists across restarts
+_settings.LastServerAddress = baseUrl;
+if (!_settings.SavedServers.Contains(baseUrl, StringComparer.OrdinalIgnoreCase))
+{
+    _settings.SavedServers.Add(baseUrl);
+}
+SettingsManager.Save(_settings);
 
     try
     {
@@ -393,10 +434,75 @@ var cleanChannels = rawChannels
             else if (selectedCollectionName != "All Channels")
             {
                 var selectedCollection = _collections.FirstOrDefault(c => c.name == selectedCollectionName);
-                if (selectedCollection != null && selectedCollection.items != null)
+                if (selectedCollection != null)
                 {
-                    // --- FIX 3/3: Changed HasIdentifier to IsExactMatch when refreshing the grid filters ---
-                    filtered = filtered.Where(c => selectedCollection.items.Any(item => c.IsExactMatch(item)));
+                    filtered = filtered.Where(c => 
+                    {
+                        // 1. STAGE 1: Check Excluded Sources
+                        // Channels DVR puts the source in the channel ID (e.g., "M3U-testadb-1234")
+                        if (selectedCollection.excluded_sources != null && selectedCollection.excluded_sources.Count > 0)
+                        {
+                            if (selectedCollection.excluded_sources.Any(es => c.Id != null && c.Id.IndexOf(es, StringComparison.OrdinalIgnoreCase) >= 0))
+                            {
+                                return false; // Immediately drop if it comes from an excluded source
+                            }
+                        }
+
+                        // 2. STAGE 2: Explicit Items Override
+                        // If the user manually added this specific channel to the list, include it
+                        bool isExplicitItem = selectedCollection.items != null && selectedCollection.items.Any(item => c.IsExactMatch(item));
+                        if (isExplicitItem) return true;
+
+                        // 3. STAGE 3: Evaluate Smart Rules
+                        bool hasRules = (selectedCollection.genres != null && selectedCollection.genres.Count > 0) ||
+                                        (selectedCollection.categories != null && selectedCollection.categories.Count > 0) ||
+                                        (selectedCollection.tags != null && selectedCollection.tags.Count > 0) ||
+                                        (selectedCollection.keywords != null && selectedCollection.keywords.Count > 0);
+
+                        // If it's not explicitly included and there are no smart rules, it fails
+                        if (!hasRules) return false;
+
+                        // Grab what is currently airing on this channel to evaluate against
+                        var currentAiring = c.CurrentAirings?.FirstOrDefault(a => a.IsAiringNow);
+                        if (currentAiring == null) return false; 
+
+                        bool passesRules = true; // Assume true, and use AND logic to knock it out
+
+                        // --- Rule: GENRES ---
+                        if (passesRules && selectedCollection.genres != null && selectedCollection.genres.Count > 0)
+                        {
+                            bool genreMatch = (currentAiring.Genres != null && currentAiring.Genres.Intersect(selectedCollection.genres, StringComparer.OrdinalIgnoreCase).Any()) ||
+                                              (currentAiring.Categories != null && currentAiring.Categories.Intersect(selectedCollection.genres, StringComparer.OrdinalIgnoreCase).Any());
+                            passesRules = genreMatch;
+                        }
+
+                        // --- Rule: CATEGORIES ---
+                        if (passesRules && selectedCollection.categories != null && selectedCollection.categories.Count > 0)
+                        {
+                            bool catMatch = (currentAiring.Categories != null && currentAiring.Categories.Intersect(selectedCollection.categories, StringComparer.OrdinalIgnoreCase).Any()) ||
+                                            (currentAiring.Genres != null && currentAiring.Genres.Intersect(selectedCollection.categories, StringComparer.OrdinalIgnoreCase).Any());
+                            passesRules = catMatch;
+                        }
+
+                        // --- Rule: TAGS ---
+                        if (passesRules && selectedCollection.tags != null && selectedCollection.tags.Count > 0)
+                        {
+                            bool tagMatch = (currentAiring.Tags != null && currentAiring.Tags.Intersect(selectedCollection.tags, StringComparer.OrdinalIgnoreCase).Any()) ||
+                                            (currentAiring.Categories != null && currentAiring.Categories.Intersect(selectedCollection.tags, StringComparer.OrdinalIgnoreCase).Any());
+                            passesRules = tagMatch;
+                        }
+
+                        // --- Rule: KEYWORDS ---
+                        if (passesRules && selectedCollection.keywords != null && selectedCollection.keywords.Count > 0)
+                        {
+                            // Smash all the text together and do a fast substring check
+                            string searchBlock = $"{currentAiring.Title} {currentAiring.EpisodeTitle} {currentAiring.DisplaySummary}".ToLower();
+                            bool keywordMatch = selectedCollection.keywords.Any(kw => searchBlock.Contains(kw.ToLower()));
+                            passesRules = keywordMatch;
+                        }
+
+                        return passesRules;
+                    });
                 }
             }
 

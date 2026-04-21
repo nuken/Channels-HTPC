@@ -336,7 +336,18 @@ namespace FeralCode
                 ManualServerIpBox.Text = serverInput;
             }
             
-            _settings.LastServerAddress = serverInput;
+           _settings.LastServerAddress = serverInput;
+            
+            // --- NEW: Add this block to permanently save the IP to the history list! ---
+            if (_settings.SavedServers == null) 
+            {
+                _settings.SavedServers = new System.Collections.Generic.List<string>();
+            }
+            if (!_settings.SavedServers.Contains(serverInput, StringComparer.OrdinalIgnoreCase))
+            {
+                _settings.SavedServers.Add(serverInput);
+            }
+            
             _settings.AutoSkipCommercials = AutoSkipCheckBox.IsChecked ?? true;
             _settings.IsLightTheme = LightModeCheckBox.IsChecked ?? false;
             _settings.StartPlayersFullscreen = FullscreenCheckBox.IsChecked ?? false;

@@ -155,10 +155,67 @@ namespace FeralCode
             else if (selectedCollectionName != "All Channels")
             {
                 var selectedCollection = _collections.FirstOrDefault(c => c.name == selectedCollectionName);
-                if (selectedCollection != null && selectedCollection.items != null)
+                if (selectedCollection != null)
                 {
-                    // --- FIX: Changed HasIdentifier to IsExactMatch for collections ---
-                    filtered = filtered.Where(c => selectedCollection.items.Any(item => c.IsExactMatch(item)));
+                    filtered = filtered.Where(c => 
+                    {
+                        // 1. STAGE 1: Check Excluded Sources
+                        if (selectedCollection.excluded_sources != null && selectedCollection.excluded_sources.Count > 0)
+                        {
+                            if (selectedCollection.excluded_sources.Any(es => c.Id != null && c.Id.IndexOf(es, StringComparison.OrdinalIgnoreCase) >= 0))
+                            {
+                                return false; // Immediately drop if it comes from an excluded source
+                            }
+                        }
+
+                        // 2. STAGE 2: Explicit Items Override
+                        bool isExplicitItem = selectedCollection.items != null && selectedCollection.items.Any(item => c.IsExactMatch(item));
+                        if (isExplicitItem) return true;
+
+                        // 3. STAGE 3: Evaluate Smart Rules
+                        bool hasRules = (selectedCollection.genres != null && selectedCollection.genres.Count > 0) ||
+                                        (selectedCollection.categories != null && selectedCollection.categories.Count > 0) ||
+                                        (selectedCollection.tags != null && selectedCollection.tags.Count > 0) ||
+                                        (selectedCollection.keywords != null && selectedCollection.keywords.Count > 0);
+
+                        if (!hasRules) return false;
+
+                        // Grab what is currently airing on this channel to evaluate against
+                        var currentAiring = c.CurrentAirings?.FirstOrDefault();
+                        if (currentAiring == null) return false; 
+
+                        bool passesRules = false; 
+
+                        // --- Rule: GENRES ---
+                        if (!passesRules && selectedCollection.genres != null && selectedCollection.genres.Count > 0)
+                        {
+                            if (currentAiring.Genres != null && currentAiring.Genres.Intersect(selectedCollection.genres, StringComparer.OrdinalIgnoreCase).Any()) passesRules = true;
+                            if (currentAiring.Categories != null && currentAiring.Categories.Intersect(selectedCollection.genres, StringComparer.OrdinalIgnoreCase).Any()) passesRules = true;
+                        }
+
+                        // --- Rule: CATEGORIES ---
+                        if (!passesRules && selectedCollection.categories != null && selectedCollection.categories.Count > 0)
+                        {
+                            if (currentAiring.Categories != null && currentAiring.Categories.Intersect(selectedCollection.categories, StringComparer.OrdinalIgnoreCase).Any()) passesRules = true;
+                            if (currentAiring.Genres != null && currentAiring.Genres.Intersect(selectedCollection.categories, StringComparer.OrdinalIgnoreCase).Any()) passesRules = true;
+                        }
+
+                        // --- Rule: TAGS ---
+                        if (!passesRules && selectedCollection.tags != null && selectedCollection.tags.Count > 0)
+                        {
+                            if (currentAiring.Tags != null && currentAiring.Tags.Intersect(selectedCollection.tags, StringComparer.OrdinalIgnoreCase).Any()) passesRules = true;
+                            if (currentAiring.Categories != null && currentAiring.Categories.Intersect(selectedCollection.tags, StringComparer.OrdinalIgnoreCase).Any()) passesRules = true;
+                        }
+
+                        // --- Rule: KEYWORDS ---
+                        if (!passesRules && selectedCollection.keywords != null && selectedCollection.keywords.Count > 0)
+                        {
+                            string searchBlock = $"{currentAiring.Title} {currentAiring.EpisodeTitle} {currentAiring.DisplaySummary}".ToLower();
+                            if (selectedCollection.keywords.Any(kw => searchBlock.Contains(kw.ToLower()))) passesRules = true;
+                        }
+
+                        return passesRules;
+                    });
                 }
             }
 

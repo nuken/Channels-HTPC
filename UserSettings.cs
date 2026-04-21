@@ -19,6 +19,7 @@ namespace FeralCode
         public bool AutoSkipCommercials { get; set; } = true;
         public bool IsLightTheme { get; set; } = false; 
         public string LastServerAddress { get; set; } = ""; 
+		public List<string> SavedServers { get; set; } = new List<string>();
         public string LastCollection { get; set; } = "All Channels";
 		public bool StartPlayersFullscreen { get; set; } = false;
 		public bool EnableTimeShiftBuffer { get; set; } = false;
