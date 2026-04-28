@@ -4,7 +4,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <AssemblyName>FeralHTPC</AssemblyName>
-    <Version>1.1.4-beta</Version>
+    <Version>1.1.5-beta</Version>
     <Authors>Bobby</Authors>
     <Company>Feral HTPC Development</Company>
     <Product>Feral HTPC</Product>

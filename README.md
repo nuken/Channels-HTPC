@@ -1,4 +1,4 @@
-# Feral HTPC (Version 1.1.4-beta)
+# Feral HTPC (Version 1.1.5-beta)
 
 Feral HTPC is a dedicated, feature-rich desktop client designed specifically for Home Theater PCs (HTPCs) running Windows. It interfaces directly with your Channels DVR server to provide a seamless, controller-friendly interface for Live TV, Movies, and external streaming services. 
 
@@ -78,6 +78,18 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 * **Media Keys:** Play/Pause, Stop, Mute, Volume Up, Volume Down are natively supported.
 
 # Changelog
+
+## [1.1.5]
+
+### New Features & Enhancements
+
+* **Progress Tracking:** The app now remembers exactly where you left off when closing a Movie or TV Show and saves it to the Channels DVR server.
+* **Resume Prompts:** Added custom, native UI pop-ups to the Movies, Shows, and Dashboard pages that ask if you want to "Resume" or "Start Over."
+* **Auto-Mark as Watched:** Automatically marks a video as "Watched" on the server if you stop it within 3 minutes of the end credits.
+* **Accurate Progress Bars:** Forced VLC to use the exact duration provided by the Channels API so the timeline slider no longer immediately jumps to 100% on the right side.
+* **Fixed TV Show Scrubbing:** Fixed the bug where fast-forwarding or scrubbing a recorded TV Show would bounce back.
+* **Smart Commercial Skipping:** Updated the commercial skip logic to support the new percentage-based seeking for TV Shows.
+* **Improved Image Loading:** Added safety checks to prevent the Player Window from crashing if the DVR server sends a broken or relative URL for a movie poster.
 
 ## [1.1.4]
 
