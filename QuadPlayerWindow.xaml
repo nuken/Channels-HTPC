@@ -6,7 +6,7 @@
         PreviewKeyDown="Window_PreviewKeyDown">
 
     <Grid x:Name="LayoutRoot">
-        <UniformGrid Rows="2" Columns="2">      
+        <Grid x:Name="PlayerGrid">      
             <Border x:Name="Border0" BorderThickness="4" BorderBrush="Transparent">
                 <Grid>
                     <vlc:VideoView x:Name="View0" />
@@ -42,7 +42,7 @@
                     </Border>
                 </Grid>
             </Border>
-        </UniformGrid>
+        </Grid>
 
         <Grid x:Name="OverlayGrid" Background="#01000000" 
               MouseLeftButtonDown="Overlay_MouseLeftButtonDown" 

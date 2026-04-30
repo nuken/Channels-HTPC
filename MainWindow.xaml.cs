@@ -395,6 +395,24 @@ namespace FeralCode
                         } catch { return Results.Ok(new object[] { }); }
                     });
 
+                    _webHost.MapGet("/api/remote/multiview/status", () =>
+                    {
+                        int total = 0;
+                        int active = -1;
+
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            var quadWindow = Application.Current.Windows.OfType<QuadPlayerWindow>().FirstOrDefault();
+                            if (quadWindow != null && quadWindow.IsVisible)
+                            {
+                                total = quadWindow.TotalActive;
+                                active = quadWindow.ActiveIndex;
+                            }
+                        });
+
+                        return Results.Ok(new { Total = total, Active = active });
+                    });
+
                     _webHost.MapPost("/api/remote/play/{channelNumber}", async (string channelNumber) => 
                     {
                         var settings = SettingsManager.Load();
