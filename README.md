@@ -1,4 +1,4 @@
-# Feral HTPC (Version 1.1.5-beta)
+# Feral HTPC (Version 1.1.6-beta)
 
 Feral HTPC is a dedicated, feature-rich desktop client designed specifically for Home Theater PCs (HTPCs) running Windows. It interfaces directly with your Channels DVR server to provide a seamless, controller-friendly interface for Live TV, Movies, and external streaming services. 
 
@@ -78,6 +78,29 @@ If you are using a standard keyboard or a generic media remote mapped to keyboar
 * **Media Keys:** Play/Pause, Stop, Mute, Volume Up, Volume Down are natively supported.
 
 # Changelog
+
+## [1.1.6]
+
+### Multiview Enhancements
+
+**1. Dynamic Screen Layouts**
+* Added logic to dynamically draw the screens based on how many channels are active:
+    * **4 Channels:** Standard 2x2 grid.
+    * **3 Channels:** 1 large screen on the left, 2 smaller screens stacked on the right.
+    * **2 Channels:** Picture-in-Picture (PiP) mode (1 full-screen background, 1 small foreground box).
+
+**2. Web Remote Syncing**
+* Built an API and background syncing loop so the phone remote redraws its buttons to match the layout showing on the TV.
+
+**3. FFmpeg Proxy Integration**
+* Added support for running up to 4 simultaneous FFmpeg background proxies (`_ffmpegProcesses` array).
+* Multiview now respects the `ForceLocalRemux` and `ForceLocalTranscode` settings from your Live TV config, allowing it to fix broken timestamps on problematic channels just like the single player.
+* Added a cleanup loop in `OnClosed` to ensure all 4 background proxy processes are safely killed when you exit Multiview.
+
+### Under The Hood
+
+* **Updated LibVLCSharp.WPF to Version 3.9.7.1**
+* **Updated VideoLAN.LibVLC.Windows to Version 3.0.23.1**
 
 ## [1.1.5]
 
