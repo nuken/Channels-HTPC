@@ -185,15 +185,15 @@ namespace FeralCode
         private void MainWindow_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
             // --- NEW: Global Fullscreen Toggle for the Main UI ---
-            if (e.Key == System.Windows.Input.Key.F || e.Key == System.Windows.Input.Key.F11)
-            {
-                ToggleFullscreen();
-                e.Handled = true;
-                return;
-            }
+            if ((e.Key == System.Windows.Input.Key.F && !(e.OriginalSource is TextBox)) || e.Key == System.Windows.Input.Key.F11)
+    {
+        ToggleFullscreen();
+        e.Handled = true;
+        return;
+    }
 
-            // Let Escape easily exit fullscreen
-            if (_isFullscreen && e.Key == System.Windows.Input.Key.Escape)
+    // Let Escape easily exit fullscreen
+    if (_isFullscreen && e.Key == System.Windows.Input.Key.Escape)
             {
                 ToggleFullscreen();
                 e.Handled = true;

@@ -511,7 +511,19 @@ var cleanChannels = rawChannels
             }
 
 // Keep HasIdentifier here so typing "Fox" still finds "Fox Sports"
-            if (!string.IsNullOrWhiteSpace(query)) filtered = filtered.Where(c => c.HasIdentifier(query));
+            // Keep HasIdentifier here so typing "Fox" still finds "Fox Sports",
+// but ALSO search the currently airing show's title and summary!
+if (!string.IsNullOrWhiteSpace(query)) 
+{
+    filtered = filtered.Where(c => 
+        c.HasIdentifier(query) || 
+        (c.CurrentAirings != null && c.CurrentAirings.FirstOrDefault() is Airing currentAiring && 
+            ((currentAiring.Title != null && currentAiring.Title.Contains(query, StringComparison.OrdinalIgnoreCase)) ||
+             (currentAiring.EpisodeTitle != null && currentAiring.EpisodeTitle.Contains(query, StringComparison.OrdinalIgnoreCase)) ||
+             (currentAiring.DisplaySummary != null && currentAiring.DisplaySummary.Contains(query, StringComparison.OrdinalIgnoreCase)))
+        )
+    );
+}
 
             // --- NEW: Sort the filtered list to bring the active tag to the top! ---
             if (_activeTag != "All Channels") 
